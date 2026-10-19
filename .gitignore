@@ -1,0 +1,11 @@
+out/
+cache/
+broadcast/
+node_modules/
+dist/
+.env
+.env.*
+.vercel/
+design/
+backtest/.cache/
+*.log
