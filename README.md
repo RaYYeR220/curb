@@ -66,10 +66,34 @@ few minutes. Curb is that rule as a v4 hook, on Robinhood Chain, launched throug
 
 The pool is CURB/IMD with the static 1.25% fee and tick spacing 60, seeded by IMD's LaunchFactory.
 
+## Live on Robinhood Chain
+
+| | Address |
+|---|---|
+| CurbDesk | [`0xa4dF8fbf3A1aB94795577c74fFae26E1d2083819`](https://robin.etherscan.io/address/0xa4dF8fbf3A1aB94795577c74fFae26E1d2083819) |
+| Drill hook (DRILL/ETH) | [`0xeE60C95711F5650bbBBee421426820feC6e060c0`](https://robin.etherscan.io/address/0xeE60C95711F5650bbBBee421426820feC6e060c0) |
+| CurbRouter | [`0x040B0f37e4CcdB79e4A2cdA7a894800bbe73eD45`](https://robin.etherscan.io/address/0x040B0f37e4CcdB79e4A2cdA7a894800bbe73eD45) |
+
+The desk paid IMD's `launch.open` itself
+([tx](https://robin.etherscan.io/tx/0x01c6be368e6b206308a9f0b82bdb7375d352e44930865604a723a83cafada7a2)),
+so it is the launch's requester and its hook's owner. The drill ran every refusal on chain:
+
+| What happened | Transaction |
+|---|---|
+| A swap through the band, refused: `OutsideBand` | [`0xb650a395…`](https://robin.etherscan.io/tx/0xb650a39530addc0b7e9af4ff8246d0eddd1778d3d77201549134b3088480ebb4) |
+| The price at the edge: `LimitEntered` | [`0x54fe7b43…`](https://robin.etherscan.io/tx/0x54fe7b43a44a0e179d8ff4d97d12a6039e8fd0cfb619dc590d48d49654c6d4f8) |
+| Ten seconds later, any swap refused: `Halted` | [`0x2d3d543c…`](https://robin.etherscan.io/tx/0x2d3d543cb871e7c03f9caf71e7ffac3944ea308861e071b9b23eb5fb8522026b) |
+| An incident the desk cannot pay for, refused: `TreasuryShort` | [`0xb5e73919…`](https://robin.etherscan.io/tx/0xb5e739198e9868f42f2510264755d495e42f1ff8202eadc889d3fac1cfe79ab7) |
+| The halt ends on its own, with no keeper: `HaltClosed` | [`0x9de3edbe…`](https://robin.etherscan.io/tx/0x9de3edbec3a9433a18919fac13b2344760c04e1adcb166967fc20e7bbe15a9dd) |
+
+Every claim and the transaction or test behind it is in [CLAIMS.md](CLAIMS.md);
+`node script/claims-check.mjs` checks them all. `bash script/drill.sh` replays the drill.
+
 ## Verify it
 
 ```sh
-forge test                         # 188 tests: unit, fuzz, 8 invariants, soak, oracle conformance
+forge test                         # 193 tests: unit, fuzz, 8 invariants, soak, oracle conformance,
+                                   # and the TypeScript model replayed against the Solidity breaker
 bash script/protected.sh           # IMD's univ4_hook admission suites, 13/13
 bash script/protected.sh above     # the same with CURB sorting above IMD
 RH_RPC=https://rpc.mainnet.chain.robinhood.com \
