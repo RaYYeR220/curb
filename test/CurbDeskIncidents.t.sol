@@ -46,6 +46,7 @@ contract CurbDeskIncidentsTest is CurbFixture {
         manager.initialize(key, SQRT_PRICE_1_1);
         lpRouter.modifyLiquidity(key, ModifyLiquidityParams(FULL_LOWER, FULL_UPPER, int256(uint256(LIQUIDITY)), 0), "");
         factory.setPosition(LAUNCH, key, address(desk));
+        vm.prank(steward);
         desk.bind(LAUNCH);
     }
 
@@ -139,6 +140,15 @@ contract CurbDeskIncidentsTest is CurbFixture {
         factory.setFees(IERC20(address(imd)), PRICE, false);
         desk.fileIncident(address(hook));
         assertEq(factory.claims(), 1);
+    }
+
+    function test_file_reentryFromFeeClaimFilesOnce() public {
+        _halt();
+        factory.setReenter(address(desk), address(hook));
+        imd.mint(address(desk), 2 * PRICE);
+        desk.fileIncident(address(hook));
+        assertFalse(factory.reentered(), "a re-entrant fileIncident went through");
+        assertEq(intake.pulled(), PRICE);
     }
 
     function test_file_claimRevertDoesNotBlockFiling() public {

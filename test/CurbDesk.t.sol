@@ -52,6 +52,7 @@ contract CurbDeskTest is Test {
     function _bindLaunch(uint64 n) internal returns (address hook) {
         hook = address(new StubHook(address(desk)));
         factory.setPosition(n, _keyFor(hook), address(desk));
+        vm.prank(steward);
         desk.bind(n);
     }
 
@@ -103,17 +104,19 @@ contract CurbDeskTest is Test {
         address hook = address(new StubHook(address(desk)));
         factory.setPosition(7, _keyFor(hook), alice);
         vm.expectRevert(abi.encodeWithSelector(CurbDesk.NotOurLaunch.selector, uint64(7)));
+        vm.prank(steward);
         desk.bind(7);
 
         address foreign = address(new StubHook(alice));
         factory.setPosition(8, _keyFor(foreign), address(desk));
         vm.expectRevert(abi.encodeWithSelector(CurbDesk.NotOurHook.selector, foreign));
+        vm.prank(steward);
         desk.bind(8);
 
         factory.setPosition(9, _keyFor(hook), address(desk));
         vm.expectEmit(address(desk));
         emit CurbDesk.Bound(hook, CurbDesk.Kind.Launch, 9);
-        vm.prank(alice);
+        vm.prank(steward);
         desk.bind(9);
         (CurbDesk.Kind kind, uint64 n) = desk.pools(hook);
         assertEq(uint8(kind), uint8(CurbDesk.Kind.Launch));
@@ -124,7 +127,19 @@ contract CurbDeskTest is Test {
 
     function test_bind_unknownLaunch() public {
         vm.expectRevert(abi.encodeWithSelector(CurbDesk.NotOurLaunch.selector, uint64(404)));
+        vm.prank(steward);
         desk.bind(404);
+    }
+
+    /// @dev Anyone can launch a pool whose hook names the desk as owner and hand the desk the
+    /// requester share with `setRequester`; if anyone could bind, such a decoy could take the
+    /// launch slot before the real pool and spend the treasury on its own "incidents".
+    function test_bind_onlySteward() public {
+        address decoy = address(new StubHook(address(desk)));
+        factory.setPosition(13, _keyFor(decoy), address(desk));
+        vm.expectRevert(CurbDesk.NotSteward.selector);
+        vm.prank(alice);
+        desk.bind(13);
     }
 
     function test_bind_once() public {
@@ -132,6 +147,7 @@ contract CurbDeskTest is Test {
         address other = address(new StubHook(address(desk)));
         factory.setPosition(8, _keyFor(other), address(desk));
         vm.expectRevert(CurbDesk.AlreadyBound.selector);
+        vm.prank(steward);
         desk.bind(8);
     }
 

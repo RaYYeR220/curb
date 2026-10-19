@@ -3,6 +3,7 @@ pragma solidity 0.8.26;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {PoolKey} from "v4-core/src/types/PoolKey.sol";
@@ -26,10 +27,10 @@ import {L2Block} from "./libraries/L2Block.sol";
 /// is written here from the hook's numbers alone, so no caller can put words in it, and its hash is
 /// pinned, so only the answer to that question is ever acted on.
 ///
-/// Custody is the point. The steward can start the one launch, bind a drill pool, rotate the Intake
-/// or the oracle key behind a 48-hour timelock, and renounce. It cannot withdraw: no function here
+/// Custody is the point. The steward can start the one launch, bind it and a drill pool, rotate the
+/// Intake or the oracle key behind a 48-hour timelock, and renounce. It cannot withdraw: no function here
 /// moves IMD anywhere except into the Intake, for exactly the action's listed price.
-contract CurbDesk is OracleAttestationConsumer {
+contract CurbDesk is OracleAttestationConsumer, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     enum Kind {
@@ -203,7 +204,7 @@ contract CurbDesk is OracleAttestationConsumer {
 
     /// @notice Pays IMD's `launch.open` for the CURB launch. `body` is the request JSON, checked
     /// free at `POST /requests/check` before it is sent; the desk is its payer, requester and owner.
-    function launch(bytes calldata body) external onlySteward returns (bytes32 requestId) {
+    function launch(bytes calldata body) external onlySteward nonReentrant returns (bytes32 requestId) {
         if (launchBound) revert AlreadyBound();
         uint256 price = _pay(LAUNCH_OPEN);
         requestId = intake.requestWithFailure(
@@ -219,9 +220,13 @@ contract CurbDesk is OracleAttestationConsumer {
         emit LaunchRequested(requestId, price);
     }
 
-    /// @notice Binds the launched pool: the factory must name this desk as the launch's requester
-    /// and the pool's hook must answer to it. Anyone may call it, once.
-    function bind(uint64 n) external {
+    /// @notice Binds the launched pool, once: the factory must name this desk as the launch's
+    /// requester and the pool's hook must answer to it.
+    /// @dev Steward-only because both conditions can be met by a stranger: anyone can launch a pool
+    /// whose hook names this desk as owner and then hand the desk the requester share with
+    /// `LaunchFactory.setRequester`. Bound first, such a decoy would take the launch slot and spend
+    /// the treasury on whatever "incidents" its hook reports.
+    function bind(uint64 n) external onlySteward {
         (PoolKey memory key,,, address requester) = factory.positionOf(n);
         if (requester != address(this)) revert NotOurLaunch(n);
         address hook = address(key.hooks);
@@ -249,13 +254,15 @@ contract CurbDesk is OracleAttestationConsumer {
 
     /// @notice Asks the oracle about the halt in progress on `hook`, once per incident. Anyone may
     /// call it; the desk pays, from LP fees it sweeps first on a launch pool.
-    function fileIncident(address hook) external returns (bytes32 requestId) {
+    function fileIncident(address hook) external nonReentrant returns (bytes32 requestId) {
         Pool memory pool = pools[hook];
         if (pool.kind == Kind.None) revert UnknownPool(hook);
         ICurbHook.Status memory s = ICurbHook(hook).status();
         if (s.phase != Breaker.Phase.Halted) revert NotHalted();
         Incident storage inc = incidents[hook][s.nonce];
         if (inc.state != IncidentState.None) revert AlreadyFiled(s.nonce);
+        // Marked before any external call: one question per incident, whatever calls back.
+        inc.state = IncidentState.Filed;
         if (pool.kind == Kind.Launch) {
             // Fees pay for the question when there are any; a claim that fails costs only its gas.
             try factory.claimFees(pool.launchNumber) {} catch {}
@@ -274,7 +281,6 @@ contract CurbDesk is OracleAttestationConsumer {
             price
         );
         pending[requestId] = Pending(hook, s.nonce, questionHash);
-        inc.state = IncidentState.Filed;
         inc.fromBlock = s.fromBlock;
         inc.toBlock = s.toBlock;
         inc.requestId = requestId;
@@ -311,7 +317,7 @@ contract CurbDesk is OracleAttestationConsumer {
 
     /// @notice Hires the swarm to write up an answered incident, only while the treasury could
     /// still pay for the next incident's question afterwards.
-    function commissionPostMortem(address hook, uint32 nonce) external returns (bytes32 requestId) {
+    function commissionPostMortem(address hook, uint32 nonce) external nonReentrant returns (bytes32 requestId) {
         Incident storage inc = incidents[hook][nonce];
         if (inc.state != IncidentState.Answered) revert NotAnswered(nonce);
         if (inc.jobRequestId != bytes32(0)) revert AlreadyCommissioned(nonce);
