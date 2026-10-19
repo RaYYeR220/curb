@@ -36,3 +36,4 @@ robinhood = "${RH_RPC}"
 
 [fmt]
 line_length = 120
+ignore = ["src/oracle/*", "src/HookFlags.sol", "test/protected/*.protected.t.sol"]

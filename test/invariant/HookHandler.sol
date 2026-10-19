@@ -140,16 +140,26 @@ contract HookHandler is Test {
         if (which % 3 == 0) {
             (ok,) = address(hook).call(abi.encodeCall(IHooks.beforeInitialize, (address(this), key, uint160(1 << 96))));
         } else if (which % 3 == 1) {
-            (ok,) = address(hook).call(
-                abi.encodeCall(IHooks.beforeSwap, (address(this), key, SwapParams(true, -1, TickMath.MIN_SQRT_PRICE + 1), ""))
-            );
+            (ok,) = address(hook)
+                .call(
+                    abi.encodeCall(
+                        IHooks.beforeSwap, (address(this), key, SwapParams(true, -1, TickMath.MIN_SQRT_PRICE + 1), "")
+                    )
+                );
         } else {
-            (ok,) = address(hook).call(
-                abi.encodeCall(
-                    IHooks.afterSwap,
-                    (address(this), key, SwapParams(true, -1, TickMath.MIN_SQRT_PRICE + 1), BalanceDelta.wrap(0), "")
-                )
-            );
+            (ok,) = address(hook)
+                .call(
+                    abi.encodeCall(
+                        IHooks.afterSwap,
+                        (
+                            address(this),
+                            key,
+                            SwapParams(true, -1, TickMath.MIN_SQRT_PRICE + 1),
+                            BalanceDelta.wrap(0),
+                            ""
+                        )
+                    )
+                );
         }
         if (ok) strangerCallback = "a callback accepted a caller other than the PoolManager";
     }
@@ -169,7 +179,11 @@ contract HookHandler is Test {
         SwapParams memory p;
         if (seed % 5 == 0) {
             // Exact output with no useful limit: where it ends is the pool's business.
-            p = SwapParams(zeroForOne, int256(bound(seed, 1e18, 1e23)), zeroForOne ? TickMath.MIN_SQRT_PRICE + 1 : TickMath.MAX_SQRT_PRICE - 1);
+            p = SwapParams(
+                zeroForOne,
+                int256(bound(seed, 1e18, 1e23)),
+                zeroForOne ? TickMath.MIN_SQRT_PRICE + 1 : TickMath.MAX_SQRT_PRICE - 1
+            );
         } else {
             p = SwapParams(zeroForOne, -1e29, TickMath.getSqrtPriceAtTick(target));
         }
@@ -179,8 +193,12 @@ contract HookHandler is Test {
             swaps++;
             _readLogs(vm.getRecordedLogs());
             ICurbHook.Status memory s = hook.status();
-            if (s.tick < s.lower || s.tick > s.upper) priceOutsideBand = "a successful swap left the price outside the band";
-            if (s.haltStart != 0 && s.reopensAt - s.haltStart > haltSeconds) haltTooLong = "a halt longer than haltSeconds";
+            if (s.tick < s.lower || s.tick > s.upper) {
+                priceOutsideBand = "a successful swap left the price outside the band";
+            }
+            if (s.haltStart != 0 && s.reopensAt - s.haltStart > haltSeconds) {
+                haltTooLong = "a halt longer than haltSeconds";
+            }
         } catch (bytes memory data) {
             vm.getRecordedLogs();
             _judgeRevert(data, before, pre);
@@ -207,7 +225,9 @@ contract HookHandler is Test {
             (int24 lower, int24 upper) = BandMath.limits(ref, band);
             bool outside = tickAfter < lower || tickAfter > upper;
             bool further = BandMath.dist(tickAfter, ref) > BandMath.dist(before, ref);
-            if (!outside || !further) unjustifiedRevert = "OutsideBand for a swap inside the band or toward the reference";
+            if (!outside || !further) {
+                unjustifiedRevert = "OutsideBand for a swap inside the band or toward the reference";
+            }
             if (limit != (tickAfter < ref ? lower : upper)) unjustifiedRevert = "OutsideBand named the wrong limit";
             return;
         }
@@ -222,7 +242,8 @@ contract HookHandler is Test {
             if (logs[i].topics[0] == trade) tradeSum += abi.decode(logs[i].data, (uint256));
             if (logs[i].topics[0] == closed) {
                 closes++;
-                (uint64 start, uint64 end,,,) = abi.decode(logs[i].data, (uint64, uint64, Breaker.Verdict, int24, uint64));
+                (uint64 start, uint64 end,,,) =
+                    abi.decode(logs[i].data, (uint64, uint64, Breaker.Verdict, int24, uint64));
                 if (end - start > haltSeconds) haltTooLong = "a closed halt lasted longer than haltSeconds";
                 uint256 n = haltStarts.length;
                 if (n > 0 && start - haltStarts[n - 1] < haltSeconds + cooldownSeconds + limitSeconds) {

@@ -44,7 +44,9 @@ contract CurbRouter is IUnlockCallback {
         returns (int128 amount0, int128 amount1)
     {
         bytes memory out = manager.unlock(
-            abi.encode(Op.Swap, msg.sender, key, SwapParams(zeroForOne, amountSpecified, sqrtPriceLimitX96), _noLiquidity())
+            abi.encode(
+                Op.Swap, msg.sender, key, SwapParams(zeroForOne, amountSpecified, sqrtPriceLimitX96), _noLiquidity()
+            )
         );
         BalanceDelta delta = abi.decode(out, (BalanceDelta));
         _refund();
@@ -55,7 +57,9 @@ contract CurbRouter is IUnlockCallback {
         external
     {
         manager.unlock(
-            abi.encode(Op.Simulate, msg.sender, key, SwapParams(zeroForOne, amountSpecified, sqrtPriceLimitX96), _noLiquidity())
+            abi.encode(
+                Op.Simulate, msg.sender, key, SwapParams(zeroForOne, amountSpecified, sqrtPriceLimitX96), _noLiquidity()
+            )
         );
     }
 
@@ -98,7 +102,12 @@ contract CurbRouter is IUnlockCallback {
             if (currency.isAddressZero()) {
                 manager.settle{value: owed}();
             } else {
+                // `payer` is always the caller of `swap` or `addLiquidity`: the PoolManager calls
+                // back only the contract that called `unlock`, with the data that contract passed.
+                // slither-disable-start arbitrary-send-erc20
+                // forge-lint: disable-next-line(arbitrary-send-erc20)
                 IERC20(Currency.unwrap(currency)).safeTransferFrom(payer, address(manager), owed);
+                // slither-disable-end arbitrary-send-erc20
                 manager.settle();
             }
         } else if (amount > 0) {
@@ -106,10 +115,16 @@ contract CurbRouter is IUnlockCallback {
         }
     }
 
+    /// @dev Returns whatever ETH the caller sent beyond what the pool took. The router holds
+    /// nothing between calls, so the whole balance is the caller's.
     function _refund() private {
         uint256 left = address(this).balance;
-        if (left == 0) return;
-        (bool ok,) = msg.sender.call{value: left}("");
+        if (left != 0) _send(msg.sender, left);
+    }
+
+    function _send(address to, uint256 amount) private {
+        // slither-disable-next-line arbitrary-send-eth
+        (bool ok,) = to.call{value: amount}("");
         if (!ok) revert RefundFailed();
     }
 

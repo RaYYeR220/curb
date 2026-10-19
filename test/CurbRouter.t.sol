@@ -44,7 +44,8 @@ contract CurbRouterTest is CurbFixture {
     function test_swap_native_refundsExcessEth() public {
         DrillToken drill = new DrillToken();
         hook = deployHook(address(drill), address(this), address(this), 61);
-        PoolKey memory k = PoolKey(Currency.wrap(address(0)), Currency.wrap(address(drill)), 12500, 60, IHooks(address(hook)));
+        PoolKey memory k =
+            PoolKey(Currency.wrap(address(0)), Currency.wrap(address(drill)), 12500, 60, IHooks(address(hook)));
         manager.initialize(k, SQRT_PRICE_1_1);
         drill.approve(address(router), type(uint256).max);
         vm.deal(address(this), 10 ether);

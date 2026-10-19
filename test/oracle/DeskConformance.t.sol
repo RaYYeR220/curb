@@ -74,11 +74,17 @@ contract DeskConformanceTest is Test {
     }
 
     function test_digestMatchesTheProtocol() public view {
-        assertEq(desk.attestationDigest(vector()), VECTOR_DIGEST, "struct, type string or domain differs from the protocol's");
+        assertEq(
+            desk.attestationDigest(vector()), VECTOR_DIGEST, "struct, type string or domain differs from the protocol's"
+        );
     }
 
     function test_callbackSelectorIsCanonical() public view {
-        assertEq(desk.onOracleResult.selector, bytes4(keccak256(bytes(CALLBACK))), "callback parameters differ from the protocol's");
+        assertEq(
+            desk.onOracleResult.selector,
+            bytes4(keccak256(bytes(CALLBACK))),
+            "callback parameters differ from the protocol's"
+        );
     }
 
     function test_acceptsAFreshSignatureFromTheVectorKey() public {

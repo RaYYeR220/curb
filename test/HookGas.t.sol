@@ -25,8 +25,12 @@ contract HookGasTest is CurbFixture {
         manager.initialize(bare, SQRT_PRICE_1_1);
         lpRouter.modifyLiquidity(bare, ModifyLiquidityParams(FULL_LOWER, FULL_UPPER, int256(uint256(LIQUIDITY)), 0), "");
         // Warm both pools the same way.
-        swapRouter.swap(key, SwapParams(true, -1e18, TickMath.MIN_SQRT_PRICE + 1), PoolSwapTest.TestSettings(false, false), "");
-        swapRouter.swap(bare, SwapParams(true, -1e18, TickMath.MIN_SQRT_PRICE + 1), PoolSwapTest.TestSettings(false, false), "");
+        swapRouter.swap(
+            key, SwapParams(true, -1e18, TickMath.MIN_SQRT_PRICE + 1), PoolSwapTest.TestSettings(false, false), ""
+        );
+        swapRouter.swap(
+            bare, SwapParams(true, -1e18, TickMath.MIN_SQRT_PRICE + 1), PoolSwapTest.TestSettings(false, false), ""
+        );
     }
 
     function _measure(PoolKey memory k) internal returns (uint256 used) {

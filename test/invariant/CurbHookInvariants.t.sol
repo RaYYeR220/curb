@@ -80,7 +80,9 @@ contract CurbHookInvariants is CurbFixture {
         invariant_5_priceAlwaysInsideBand();
         invariant_6_collectAlwaysSucceeds();
         invariant_8_totalVolumeEqualsTradeSum();
-        console.log("soak: swaps %s refusals %s halted reverts %s", handler.swaps(), handler.refusals(), handler.haltedReverts());
+        console.log(
+            "soak: swaps %s refusals %s halted reverts %s", handler.swaps(), handler.refusals(), handler.haltedReverts()
+        );
         console.log("soak: halts closed %s verdicts applied %s", handler.closes(), handler.resolves());
         assertGt(handler.refusals(), 50);
         assertGt(handler.haltedReverts(), 10);
@@ -91,7 +93,9 @@ contract CurbHookInvariants is CurbFixture {
     /// @dev Proof the run reached the states the invariants are about.
     function afterInvariant() public view {
         assertGt(handler.swaps(), 0);
-        console.log("swaps %s refusals %s halted reverts %s", handler.swaps(), handler.refusals(), handler.haltedReverts());
+        console.log(
+            "swaps %s refusals %s halted reverts %s", handler.swaps(), handler.refusals(), handler.haltedReverts()
+        );
         console.log("halts closed %s verdicts applied %s", handler.closes(), handler.resolves());
     }
 }
