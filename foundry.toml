@@ -1,0 +1,38 @@
+[profile.default]
+src = "src"
+test = "test"
+out = "out"
+libs = ["lib"]
+solc = "0.8.26"
+evm_version = "cancun"
+via_ir = true
+optimizer = true
+optimizer_runs = 200
+bytecode_hash = "none"
+fs_permissions = [{ access = "read", path = "./test/fixtures" }]
+no_match_path = "test/protected/*"
+
+[profile.default.fuzz]
+runs = 512
+seed = "0x1c0b"
+
+[profile.default.invariant]
+runs = 64
+depth = 64
+fail_on_revert = false
+
+[profile.deep.fuzz]
+runs = 5000
+
+[profile.deep.invariant]
+runs = 256
+depth = 200
+
+[profile.protected]
+no_match_path = "test/fork/*"
+
+[rpc_endpoints]
+robinhood = "${RH_RPC}"
+
+[fmt]
+line_length = 120
