@@ -197,7 +197,9 @@ export class Breaker {
         r.limitCleared = true;
       }
     }
-    s.cum += BigInt(s.lastTick) * BigInt(now - s.lastObs);
+    // Time spent where nothing trades is not sampled: the window slides past it instead.
+    if (liquid) s.cum += BigInt(s.lastTick) * BigInt(now - s.lastObs);
+    else s.windowStart += now - s.lastObs;
     s.lastObs = now;
     return r;
   }

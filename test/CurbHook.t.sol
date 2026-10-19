@@ -352,6 +352,45 @@ abstract contract CurbHookTest is CurbFixture {
         assertEq(tick(), -500);
     }
 
+    /// @dev Waiting in the empty range is free: sampled into the reference, a window of it would
+    /// drag the next roll toward a price nobody traded, halting buyers a second after they return.
+    function test_voidTime_isNotSampled_cannotHaltReturningBuyers() public {
+        _launchLikePool();
+        moveTo(999);
+        vm.warp(block.timestamp + WINDOW);
+        moveTo(-100);
+        vm.warp(block.timestamp + 1);
+        moveTo(-101);
+        assertEq(hook.status().ref, 0);
+        assertEq(hook.status().edgeSince, 0);
+        vm.warp(block.timestamp + LIMIT);
+        assertEq(uint8(hook.status().phase), uint8(Breaker.Phase.Open));
+    }
+
+    function test_voidTime_isNotSampled_cannotCapBuyers() public {
+        _launchLikePool();
+        moveTo(999);
+        vm.warp(block.timestamp + WINDOW);
+        moveTo(-100);
+        vm.warp(block.timestamp + 1);
+        moveTo(-99);
+        assertEq(hook.status().ref, 0);
+        moveTo(-300);
+        assertEq(tick(), -300);
+    }
+
+    function test_voidTime_rollUsesOnlyLiquidTime() public {
+        _launchLikePool();
+        moveTo(-200);
+        vm.warp(block.timestamp + WINDOW / 2);
+        moveTo(999);
+        vm.warp(block.timestamp + WINDOW);
+        moveTo(-200);
+        vm.warp(block.timestamp + WINDOW / 2);
+        moveTo(-201);
+        assertEq(hook.status().ref, -200);
+    }
+
     function test_dustBelowMinimum_isNotLiquidity() public {
         _launchLikePool();
         lpRouter.modifyLiquidity(key, ModifyLiquidityParams(900, 960, 1, bytes32(uint256(2))), "");

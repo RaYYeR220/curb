@@ -27,8 +27,8 @@ import {BandMath} from "./BandMath.sol";
 ///
 /// Where the pool has no liquidity in range, as below the opening price of a single-sided launch,
 /// moving the price costs nothing and nobody can trade. Prices there are not a market, so they
-/// never start the limit clock, never roll the reference and never become the reference when a
-/// halt closes. The band still caps a free move. And a swap that starts in such a range and crosses
+/// never start the limit clock, never roll the reference, are never sampled into it and never
+/// become the reference when a halt closes. The band still caps a free move. And a swap that starts in such a range and crosses
 /// into liquidity is judged from where the liquidity begins, not from a reference it never traded
 /// against; if it lands within a band of that boundary it passes and the reference re-anchors
 /// beside it. A reference left behind in an empty range can therefore never shut buyers out.
@@ -169,7 +169,9 @@ library Breaker {
                 b.limitCleared = true;
             }
         }
-        s.cum += int56(s.lastTick) * int56(uint56(nowTs - s.lastObs));
+        // Time spent where nothing trades is not sampled: the window slides past it instead.
+        if (liquid) s.cum += int56(s.lastTick) * int56(uint56(nowTs - s.lastObs));
+        else s.windowStart += nowTs - s.lastObs;
         s.lastObs = nowTs;
     }
 

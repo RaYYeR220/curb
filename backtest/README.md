@@ -13,13 +13,13 @@ that `test/differential` holds to the Solidity library. The verdict rule is `Cur
 ## Results
 
 <!-- results:start -->
-Run at L2 block 92,893,458 (2026-10-19T20:21:38Z) over every launch since 2026-09-19T20:21:38Z.
+Run at L2 block 92,971,927 (2026-10-19T22:36:12Z) over every launch since 2026-09-19T22:36:12Z.
 
-- **20 launch pools**, 13 of them traded: **2,982 swaps** from 747 distinct senders.
+- **21 launch pools**, 13 of them traded: **2,982 swaps** from 747 distinct senders.
 - **Refused (OutsideBand): 470 swaps** (15.8%) from 252 senders, in 89 breakouts (runs of consecutive refusals on one side). 318 pushed the token up, 152 down; 4 were swaps larger than all the liquidity on their side, ending where nothing trades.
 - **Halts: 22**, in 6 pools. 420 swaps arrived during one; 1 halt saw none.
 - **Verdicts:** 12 organic, 1 concentrated, 9 inconclusive. 13 applied (organic reopens after 90 s, concentrated pins); inconclusive halts run their full 15 minutes.
-- **Time halted:** 2.8 h within the pools' first 24 hours, 0.61% of those 20 pool-days; 2.8 h over their whole lives, 0.083%.
+- **Time halted:** 2.8 h within the pools' first 24 hours, 0.60% of those 21 pool-days; 2.8 h over their whole lives, 0.082%.
 - **If no verdict ever landed** (oracle down, every halt runs 15 minutes): 241 refused, 22 halts, 943 swaps during halts, 5.5 h halted.
 
 | Launch | Token | Pair | Swaps | Senders | Refused (up / down) | Breakouts | Halts | Swaps in halts | Halted, first 24 h | Halted, % of life | Verdicts O / C / I | First-hour high |
@@ -32,14 +32,14 @@ Run at L2 block 92,893,458 (2026-10-19T20:21:38Z) over every launch since 2026-0
 | 1316 | MONEYBACK | IMD | 179 | 101 | 40 (26 / 14) | 6 | 2 | 13 | 3 min (0.2%) | 0.03% | 2 / 0 / 0 | +79.4% |
 | 1330 | RNNN | IMD | 4 | 3 | 0 (0 / 0) | 0 | 0 | 0 | — | — | — | +0.6% |
 | 1439 | PIMD | IMD | 147 | 77 | 52 (51 / 1) | 7 | 2 | 15 | 3 min (0.2%) | 0.03% | 2 / 0 / 0 | +47.6% |
-| 1710 | BLACKOUT | ETH | 427 | 95 | 0 (0 / 0) | 0 | 3 | 36 | 45 min (3.1%) | 0.57% | 0 / 0 / 3 | +29.2% |
+| 1710 | BLACKOUT | ETH | 427 | 95 | 0 (0 / 0) | 0 | 3 | 36 | 45 min (3.1%) | 0.56% | 0 / 0 / 3 | +29.2% |
 | 1745 | REKTD | IMD | 14 | 2 | 1 (0 / 1) | 1 | 0 | 0 | — | — | — | +0.7% |
 | 1768 | REKTD | ETH | 2 | 2 | 0 (0 / 0) | 0 | 0 | 0 | — | — | — | +0.0% |
 | 1872 | CRWN | ETH | 5 | 2 | 0 (0 / 0) | 0 | 0 | 0 | — | — | — | +0.0% |
-| 2196 | CABAL | IMD | 174 | 82 | 39 (9 / 30) | 4 | 2 | 80 | 3 min (0.2%) | 0.24% | 2 / 0 / 0 | +169.3% |
-| **All** | | | **2,982** | **747** | **470 (318 / 152)** | **89** | **22** | **420** | **2.8 h** | **0.083%** | **12 / 1 / 9** | |
+| 2196 | CABAL | IMD | 174 | 82 | 39 (9 / 30) | 4 | 2 | 80 | 3 min (0.2%) | 0.21% | 2 / 0 / 0 | +169.3% |
+| **All** | | | **2,982** | **747** | **470 (318 / 152)** | **89** | **22** | **420** | **2.8 h** | **0.082%** | **12 / 1 / 9** | |
 
-Never traded: 1194 SNEWT/IMD, 1300 SPEPE/IMD, 1327 RNNN/IMD, 1660 PERK/IMD, 1867 CRWN/ETH, 2185 KEPT/IMD, 2232 GAMMA/IMD.
+Never traded: 1194 SNEWT/IMD, 1300 SPEPE/IMD, 1327 RNNN/IMD, 1660 PERK/IMD, 1867 CRWN/ETH, 2185 KEPT/IMD, 2232 GAMMA/IMD, 2266 CURB/IMD.
 
 ### The most violent launches
 
@@ -68,7 +68,7 @@ Never traded: 1194 SNEWT/IMD, 1300 SPEPE/IMD, 1327 RNNN/IMD, 1660 PERK/IMD, 1867
 | 1015 WORK | 5 | 2026-10-08 15:04:36 | 15 min | -11.7% | 83,391,363–83,405,439 | 3 | `0xce7c…acd5` | 58.5% | inconclusive | 3 |
 | 1316 MONEYBACK | 0 | 2026-10-11 16:58:49 | 90 s | +30.2% | 85,989,366–85,990,667 | 14 | `0x9698…e471` | 22.1% | organic | 6 |
 | 1316 MONEYBACK | 1 | 2026-10-11 17:44:04 | 90 s | +17.0% | 86,012,067–86,017,035 | 14 | `0xf4ef…6424` | 17.2% | organic | 7 |
-| 1439 PIMD | 0 | 2026-10-12 16:30:19 | 90 s | +11.1% | 86,812,336–86,815,580 | 9 | `0x758e…d011` | 18.9% | organic | 7 |
+| 1439 PIMD | 0 | 2026-10-12 16:30:08 | 90 s | +11.3% | 86,812,336–86,815,580 | 9 | `0x758e…d011` | 18.9% | organic | 7 |
 | 1439 PIMD | 1 | 2026-10-13 04:30:54 | 90 s | +39.6% | 87,037,934–87,234,239 | 10 | `0xf678…d6c9` | 16.1% | organic | 8 |
 | 1710 BLACKOUT | 0 | 2026-10-14 09:12:46 | 15 min | +10.2% | 88,242,019–88,249,860 | 9 | `0x153f…883c` | 33.2% | inconclusive | 17 |
 | 1710 BLACKOUT | 1 | 2026-10-14 13:45:48 | 15 min | +9.7% | 88,407,158–88,412,666 | 8 | `0x841e…984b` | 32.5% | inconclusive | 10 |
