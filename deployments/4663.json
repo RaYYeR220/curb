@@ -7,10 +7,18 @@
     "drillToken": "0x2c7852B54EFd464AD16D2C36c00b43Af8EA02DD3"
   },
   "launch": {
+    "payment": "0x5ac4c9d4473b061caa6c01665e288df0a3355a424984033c05132a4da9275d93",
+    "requestId": "0x40d0437ec0243e376fa4bde649876532c3f4d5867f93b257cca64be20bf8cd6b",
+    "job": "dac7fdb4-c231-4d5f-979f-17855ab2de9c",
+    "baseCommit": "335beee060cfb27416112a33ac480983d2b6e5c2"
+  },
+  "parkedLaunch": {
     "payment": "0x01c6be368e6b206308a9f0b82bdb7375d352e44930865604a723a83cafada7a2",
     "requestId": "0xe5d4aa63c85abe5ee4d7a1874ef38f91cc2ee855b1a149251d712fbf4c2683be",
     "job": "ba1783a0-120c-41b3-a933-892a34a6e91c",
-    "baseCommit": "faea5be40d0bc1a3125d756705b29ac76a12cb43"
+    "baseCommit": "faea5be40d0bc1a3125d756705b29ac76a12cb43",
+    "number": 2255,
+    "parked": "bytecode: CurbDesk contains DELEGATECALL"
   },
   "proofs": {
     "drill": {

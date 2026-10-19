@@ -7,5 +7,28 @@ export const deployments = {
   "drill": {
     "drillHook": "0xeE60C95711F5650bbBBee421426820feC6e060c0",
     "drillToken": "0x2c7852B54EFd464AD16D2C36c00b43Af8EA02DD3"
+  },
+  "launch": {
+    "payment": "0x5ac4c9d4473b061caa6c01665e288df0a3355a424984033c05132a4da9275d93",
+    "requestId": "0x40d0437ec0243e376fa4bde649876532c3f4d5867f93b257cca64be20bf8cd6b",
+    "job": "dac7fdb4-c231-4d5f-979f-17855ab2de9c",
+    "baseCommit": "335beee060cfb27416112a33ac480983d2b6e5c2"
+  },
+  "parkedLaunch": {
+    "payment": "0x01c6be368e6b206308a9f0b82bdb7375d352e44930865604a723a83cafada7a2",
+    "requestId": "0xe5d4aa63c85abe5ee4d7a1874ef38f91cc2ee855b1a149251d712fbf4c2683be",
+    "job": "ba1783a0-120c-41b3-a933-892a34a6e91c",
+    "baseCommit": "faea5be40d0bc1a3125d756705b29ac76a12cb43",
+    "number": 2255,
+    "parked": "bytecode: CurbDesk contains DELEGATECALL"
+  },
+  "proofs": {
+    "drill": {
+      "outsideBand": "0xb650a39530addc0b7e9af4ff8246d0eddd1778d3d77201549134b3088480ebb4",
+      "limitEntered": "0x54fe7b43a44a0e179d8ff4d97d12a6039e8fd0cfb619dc590d48d49654c6d4f8",
+      "halted": "0x2d3d543cb871e7c03f9caf71e7ffac3944ea308861e071b9b23eb5fb8522026b",
+      "treasuryShort": "0xb5e739198e9868f42f2510264755d495e42f1ff8202eadc889d3fac1cfe79ab7",
+      "haltClosed": "0x9de3edbec3a9433a18919fac13b2344760c04e1adcb166967fc20e7bbe15a9dd"
+    }
   }
 } as const;
