@@ -17,7 +17,7 @@ import {
 } from "@curb/sdk";
 import { formatPreview, formatStatus } from "./format";
 import { healthGate } from "./gate";
-import { Imd } from "./imd";
+import { Imd, importUrl } from "./imd";
 import { attestationTuple, decide, type PoolView } from "./keeper";
 
 const ORACLE_REQUEST = stringToHex("oracle.request@oracle-1", { size: 32 });
@@ -89,7 +89,7 @@ program
     if (!gate.ok) throw new Error(`not paying: ${gate.reasons.join("; ")}`);
     const check = await imd.check("launch.open", body);
     if (!check.blockers || check.blockers.length > 0) throw new Error(`not paying: ${JSON.stringify(check.blockers ?? check)}`);
-    const imported = await imd.importRepo(body.repoUrl);
+    const imported = await imd.importRepo(importUrl(body.repoUrl, body.baseCommit));
     if (!imported.ok || imported.source?.baseCommit !== body.baseCommit) throw new Error(`not paying: import ${JSON.stringify(imported)}`);
     const hash = await wallet().writeContract({
       address: desk,

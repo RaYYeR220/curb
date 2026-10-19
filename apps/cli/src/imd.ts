@@ -17,6 +17,11 @@ export interface AttestationDoc {
   signer: string;
 }
 
+/** The import URL for one commit: IMD resolves a bare repository URL to its default branch. */
+export function importUrl(repoUrl: string, commit: string): string {
+  return `${repoUrl.replace(/\.git$/, "")}/tree/${commit}`;
+}
+
 export class Imd {
   constructor(
     private readonly base = IMD_API,

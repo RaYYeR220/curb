@@ -5,7 +5,7 @@ import { Phase, curbHookAbi, decodeCurbError, wrappedErrorAbi } from "@curb/sdk"
 import { healthGate } from "../src/gate";
 import { attestationTuple, decide, CLAIM_EVERY, type PoolView } from "../src/keeper";
 import { formatPreview } from "../src/format";
-import type { AttestationDoc } from "../src/imd";
+import { importUrl, type AttestationDoc } from "../src/imd";
 
 const HOOK = "0xeE60C95711F5650bbBBee421426820feC6e060c0" as const;
 
@@ -91,5 +91,13 @@ describe("previews", () => {
     expect(formatPreview({ ok: true, amount0: -(10n ** 15n), amount1: 10n ** 18n, tickAfter: 230300 })).toBe(
       "would pass: amount0 -0.001, amount1 1, ending at tick 230300",
     );
+  });
+});
+
+describe("the import gate", () => {
+  it("imports the body's exact commit, not the default branch", () => {
+    const commit = "335beee060cfb27416112a33ac480983d2b6e5c2";
+    expect(importUrl("https://github.com/RaYYeR220/curb.git", commit)).toBe(`https://github.com/RaYYeR220/curb/tree/${commit}`);
+    expect(importUrl("https://github.com/RaYYeR220/curb", commit)).toBe(`https://github.com/RaYYeR220/curb/tree/${commit}`);
   });
 });
