@@ -36,3 +36,10 @@ reference window.
 
 The soak walk reaches 1,130 swaps, 478 refusals, 260 swaps refused by a halt, 150 closed halts and
 47 applied verdicts, with every invariant checked at the end.
+
+## The oracle callback
+
+IMD's Intake calls `CurbDesk.onOracleResult` once, with a 200,000 gas stipend. A Concentrated
+verdict that resolves the live halt uses **99,098 gas** in `test_callback_fitsIn200k`, including
+the hook's `resolve` (14,076). That leaves about half the stipend as margin. Signature check,
+replay mark, verdict record and the call into the hook all fit.
