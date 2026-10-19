@@ -3,6 +3,7 @@ import {
   erc20Abi,
   keccak256,
   parseAbi,
+  parseEventLogs,
   zeroAddress,
   type Abi,
   type Address,
@@ -15,7 +16,16 @@ import type { ChainLog } from "./timeline";
 import type { HookParams } from "./phase";
 import type { PairInfo } from "./price";
 
-export const client: PublicClient = curbClient();
+/** The hosted site reads through its own `/rpc` (VITE_RPC=rpc), because the public endpoint
+ * sometimes sends its CORS header twice and browsers then refuse the answer. A value that is not
+ * an http(s) URL is a path on the site's own origin. */
+function rpcUrl(): string | undefined {
+  const rpc = import.meta.env.VITE_RPC as string | undefined;
+  if (!rpc) return undefined;
+  return /^https?:\/\//.test(rpc) ? rpc : new URL(rpc, `${window.location.origin}/`).href;
+}
+
+export const client: PublicClient = curbClient(rpcUrl());
 
 const EXPLORER = robinhood.blockExplorers.default.url;
 export const txUrl = (hash: string) => `${EXPLORER}/tx/${hash}`;
@@ -86,7 +96,11 @@ async function contractEvents(
 ) {
   const out: ChainLog[] = [];
   for (const [a, b] of blockRanges(from, to)) {
-    const logs = await client.getContractEvents({ address, abi, fromBlock: a, toBlock: b, ...filter } as never);
+    // Every event of a contract would go out as a list of topics, which the RPC caps at 100,000
+    // blocks; asking by address alone keeps the 10,000,000-block limit, and the ABI sorts them here.
+    const logs = filter
+      ? await client.getContractEvents({ address, abi, fromBlock: a, toBlock: b, ...filter } as never)
+      : parseEventLogs({ abi, logs: await client.getLogs({ address, fromBlock: a, toBlock: b }) });
     out.push(...(await flatten(logs as unknown as RawLog[])));
   }
   return out;
