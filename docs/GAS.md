@@ -9,9 +9,9 @@ CurbHook and on an identical pool with no hook:
 
 | | gas |
 |---|---|
-| swap with CurbHook | 204,299 |
+| swap with CurbHook | 204,766 |
 | swap without a hook | 137,992 |
-| **overhead** | **66,307** |
+| **overhead** | **66,774** |
 
 What the overhead pays for, per swap:
 
@@ -40,6 +40,10 @@ The soak walk reaches 1,130 swaps, 478 refusals, 260 swaps refused by a halt, 15
 ## The oracle callback
 
 IMD's Intake calls `CurbDesk.onOracleResult` once, with a 200,000 gas stipend. A Concentrated
-verdict that resolves the live halt uses **99,098 gas** in `test_callback_fitsIn200k`, including
-the hook's `resolve` (14,076). That leaves about half the stipend as margin. Signature check,
-replay mark, verdict record and the call into the hook all fit.
+verdict that resolves the live halt uses **102,468 gas** in `test_callback_fitsIn200k`, including
+the hook's `resolve` (14,108) and a reentrancy guard. That leaves about half the stipend as
+margin. Signature check, replay mark, verdict record and the call into the hook all fit.
+
+A swap that starts where nothing trades and is refused by the band walks the PoolManager's tick
+bitmap to find the first real liquidity it crossed. That costs one read per bitmap word (256
+spaced ticks), bounded at 64 words, and only on that rare path.

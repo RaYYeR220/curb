@@ -1,0 +1,21 @@
+{
+  "kind": "univ4_hook",
+  "hook": {
+    "contract": "CurbHook",
+    "permissions": ["beforeInitialize", "beforeSwap", "afterSwap"],
+    "constructorArgs": ["$poolManager", "$token", "$factory", "$owner", 1000, 100, 300, 15, 900, 1800, 100000, true]
+  },
+  "token": {
+    "contract": "CurbToken",
+    "name": "Curb",
+    "symbol": "CURB",
+    "decimals": 18
+  },
+  "pool": {
+    "pairedCurrency": "0x5f7bb59365ce557c26dbcaa4ee9d39a4b95b7127",
+    "fee": 12500,
+    "tickSpacing": 60,
+    "initialPrice": "79228162514264337593543950336"
+  },
+  "notes": "CurbToken (src/CurbToken.sol) is a fixed-supply ERC-20: name Curb, symbol CURB, 18 decimals, 1,000,000,000 tokens minted once to its deployer in the constructor, no constructor arguments, no owner, mint, burn, tax or pause. CurbHook (src/CurbHook.sol) brings exchange-style Limit Up-Limit Down circuit breakers to its pool. Constructor, in declaration order: IPoolManager poolManager_ ($poolManager), address token_ ($token), address initializer_ ($factory), address owner_ ($owner), int24 bandTicks 1000, int24 edgeTicks 100, uint32 refWindow 300, uint32 limitSeconds 15, uint32 haltSeconds 900, uint32 cooldownSeconds 1800, uint32 minLiquidityE18 100000, i.e. a minimum in-range liquidity of 1e23 (about 7% of the liquidity the factory seeds; below it a range counts as having no market), bool arbBlocks true. The constructor makes no external calls and rejects zero addresses and inconsistent parameters; BaseHook (OpenZeppelin uniswap-hooks v1.3.0-rc.0) validates the address against getHookPermissions, so it must be CREATE2-mined to flags 0x20C0: beforeInitialize, beforeSwap, afterSwap. No return deltas, no liquidity or donate callbacks, no fee: adding, removing and the factory's zero-liquidity fee collect are untouched. beforeInitialize accepts exactly one pool: sender must be the launch factory ($factory), the key must hold CURB, key.fee must be 12500 (static) and key.tickSpacing 60; a second initialisation reverts. Behaviour: a swap that would end more than 1000 ticks from a 5-minute time-weighted reference, further from the reference than it started, reverts OutsideBand(ref, tickAfter, limit, zeroForOne); a swap toward the reference always passes and the price is always inside the band. A price held within 100 ticks of the band edge for 15 seconds halts the pool in both directions for at most 900 seconds (Halted(nonce, reopensAt)), derived from stored state and the clock with no keeper, then a 1800-second cooldown spaces the next halt. Where in-range liquidity is below minLiquidity (under the opening price, where moving the price is free) the price never starts the limit clock, never rolls the reference and never becomes the reference when a halt closes; a swap that starts there and crosses into liquidity is judged from the first initialised tick carrying at least minLiquidity, so a reference left in an empty range cannot shut buyers out. The owner ($owner, the CurbDesk that pays for this launch) has one power, resolve(nonce, verdict): end the current halt now or pin the pre-move reference through the cooldown; it cannot lengthen a halt, change a parameter or move funds, and ownership cannot be transferred. Each successful swap emits Trade(tx.origin, |paired-currency delta|) and adds it to totalVolume. The L2 block number comes from ArbSys (address 100) with a fallback to block.number where it is absent. Offline: forge build and forge test (186 passed, 0 failed, 2 fork tests skipped without RH_RPC), including 8 stateful invariants and a 3,000-action soak walk; IMD's univ4_hook protected suites pass 13/13 in both token orders via script/protected.sh. docs/VERIFICATION.md records a Robinhood fork rehearsal on the live LaunchFactory 0xa25b02a1e93903b790e6aaf7da1b8b8d50294645 and PoolManager 0x8366a39cc670b4001a1121b8f6a443a643e40951 at L2 block 92,825,234: LaunchFactory.launch sent by the launch wallet with this token and hook (5.8M gas), trades both ways, a refused swap, claimFees with the hook live, a halt, an incident filed through the live Intake and its verdict delivered by Intake.complete within the 200,000 gas stipend."
+}

@@ -28,7 +28,7 @@ bash script/protected.sh above   # the same with CURB sorting above IMD
 RH_RPC=https://rpc.mainnet.chain.robinhood.com forge test --match-contract LaunchRehearsal -vv
 ```
 
-Run on 2026-10-19 17:07 UTC against Robinhood Chain at L2 block 92,778,380, using IMD's live
+Run on 2026-10-19 18:13 UTC against Robinhood Chain at L2 block 92,825,234, using IMD's live
 contracts throughout:
 
 | Contract | Address |
@@ -53,7 +53,7 @@ Both token orders pass:
 
 | | CURB above IMD | CURB below IMD |
 |---|---|---|
-| launch transaction gas | 5,383,552 | 5,451,296 |
+| launch transaction gas | 5,812,207 | 5,794,538 |
 | EIP-7825 cap | 16,777,216 | 16,777,216 |
 | result | pass | pass |
 
