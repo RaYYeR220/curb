@@ -49,7 +49,8 @@ out=sys.stdin.read()
 names={'6903c757':'OutsideBand','a4e8c8ab':'Halted','df99685d':'TreasuryShort','78b19eb2':'NotHalted'}
 m=re.search(r'WrappedError\(0x[0-9a-fA-F]{40}, 0x[0-9a-fA-F]{8}, 0x([0-9a-fA-F]{8})', out) or re.search(r'custom error 0x([0-9a-fA-F]{8})', out)
 sel=m.group(1).lower() if m else ''
-print('  reason:', names.get(sel, sel or 'passes'))"
+n=re.search(r'execution reverted: (\w+)', out)
+print('  reason:', names.get(sel, sel or (n.group(1) if n else 'passes')))"
 }
 
 send() {
