@@ -77,9 +77,9 @@ s=re.sub(r'\[[^]]*\]', '', sys.stdin.read()).strip('() \n')
 print(s.split(',')[2].strip())")
 echo "drill hook $HOOK, reference tick $REF"
 
-# 1. Through the band: 0.001 ETH with no price limit carries the price far past it.
-why --value 1000000000000000 "$ROUTER" "$SWAP" -- "$POOL" true -1000000000000000 $MIN_LIMIT
-send "1 refused  OutsideBand " --value 1000000000000000 --gas-limit 900000 "$ROUTER" "$SWAP" -- "$POOL" true -1000000000000000 $MIN_LIMIT
+# 1. Through the band: 0.0001 ETH with no price limit carries the price far past it.
+why --value 100000000000000 "$ROUTER" "$SWAP" -- "$POOL" true -100000000000000 $MIN_LIMIT
+send "1 refused  OutsideBand " --value 100000000000000 --gas-limit 900000 "$ROUTER" "$SWAP" -- "$POOL" true -100000000000000 $MIN_LIMIT
 # 2. Into the edge zone: stop 270 ticks below the reference (band 300, edge 60).
 EDGE_LIMIT=$(sqrt_at $((REF - 270)))
 send "2 passes   LimitEntered" --value 100000000000000 --gas-limit 900000 "$ROUTER" "$SWAP" -- "$POOL" true -100000000000000 "$EDGE_LIMIT"
