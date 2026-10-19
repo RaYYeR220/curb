@@ -119,12 +119,24 @@ contract BreakerTest is Test {
         h.swap(1100, 900, true);
         (Breaker.Before memory b,) = h.swap(1925, 950, true);
         assertEq(uint8(b.closed.verdict), uint8(Breaker.Verdict.Concentrated));
-        assertEq(b.closed.newRef, 0);
+        // The pre-move reference, moved only far enough to take the price out of the edge zone.
+        assertEq(b.closed.newRef, 51);
         assertEq(h.state().pinUntil, 3725);
         // Pushing further is refused against the pinned level; moving back toward it is not.
-        vm.expectRevert(abi.encodeWithSelector(BreakerHarness.Refused.selector, int24(1000)));
-        h.swap(2000, 1001, true);
+        vm.expectRevert(abi.encodeWithSelector(BreakerHarness.Refused.selector, int24(1051)));
+        h.swap(2000, 1052, true);
         h.swap(2000, 900, true);
+    }
+
+    function test_pin_leavesEdgeRoom_afterDump() public {
+        // A dump to the lower limit, called concentrated: the pinned band still leaves sellers room.
+        (, Breaker.After memory a) = h.swap(1010, -1000, true);
+        assertTrue(a.limitEntered);
+        h.resolve(1100, 0, Breaker.Verdict.Concentrated);
+        (Breaker.Before memory b,) = h.swap(1925, -1000, true);
+        assertEq(b.closed.newRef, -101);
+        h.swap(1930, -1100, true);
+        assertEq(h.state().lastTick, -1100);
     }
 
     function test_pin_keepsReferenceFromLimitEntry() public {
@@ -137,7 +149,7 @@ contract BreakerTest is Test {
         assertTrue(a.limitEntered);
         h.resolve(1400, 0, Breaker.Verdict.Concentrated);
         (Breaker.Before memory b,) = h.swap(1316 + 900, 1001, true);
-        assertEq(b.closed.newRef, 51);
+        assertEq(b.closed.newRef, 102);
     }
 
     function test_pin_blocksRolls_untilCooldownEnd_thenRollUsesPostHaltSamplesOnly() public {
@@ -148,7 +160,7 @@ contract BreakerTest is Test {
         assertFalse(b.rolled);
         (b,) = h.swap(2600, 400, true);
         assertFalse(b.rolled);
-        assertEq(h.state().ref, 0);
+        assertEq(h.state().ref, 51);
         h.swap(3600, 380, true);
         (b,) = h.swap(3730, 380, true);
         assertTrue(b.rolled);
@@ -208,6 +220,51 @@ contract BreakerTest is Test {
         // The band still caps a free move.
         vm.expectRevert(abi.encodeWithSelector(BreakerHarness.Refused.selector, int24(1000)));
         h.swap(1500, 1001, false);
+    }
+
+    // ---- where nothing trades ----
+
+    function test_edgeExitIntoVoid_clearsClock() public {
+        _enterEdge(1010);
+        (, Breaker.After memory a) = h.swapFull(1012, 300, true, false, false, 0);
+        assertTrue(a.limitCleared);
+        assertEq(h.state().edgeSince, 0);
+        h.swap(1030, 250, true);
+        assertEq(uint8(h.phase(1030)), uint8(Breaker.Phase.Open));
+    }
+
+    function test_closeIlliquid_keepsReference() public {
+        _enterEdge(1010);
+        // Back through the market and out the other side, into a range with no liquidity: still
+        // at a band edge, so the limit state holds and the pool halts.
+        h.swapFull(1012, -1000, true, false, false, 0);
+        (Breaker.Before memory b,) = h.swapFull(1925, -1000, false, false, false, 0);
+        assertTrue(b.closed.happened);
+        // A close never re-centres onto a price nobody can trade at.
+        assertEq(b.closed.newRef, 0);
+    }
+
+    function test_voidStart_admittedFromBoundary() public {
+        h.swapFull(1010, -900, true, false, false, 0); // a free push into a range with no liquidity
+        assertEq(h.state().edgeSince, 0);
+        (, Breaker.After memory a) = h.swapFull(1020, 1200, false, true, true, 300);
+        assertTrue(a.reanchored);
+        Breaker.State memory st = h.state();
+        assertEq(st.ref, 301);
+        assertEq(st.lastTick, 1200);
+        assertEq(st.windowStart, 1020);
+        assertEq(st.cum, 0);
+    }
+
+    function test_voidStart_notWhenStartedLiquid() public {
+        vm.expectRevert(abi.encodeWithSelector(BreakerHarness.Refused.selector, int24(1000)));
+        h.swapFull(1020, 1200, true, true, true, 300);
+    }
+
+    function test_voidStart_boundaryTooFar() public {
+        h.swapFull(1010, -900, true, false, false, 0);
+        vm.expectRevert(abi.encodeWithSelector(BreakerHarness.Refused.selector, int24(1000)));
+        h.swapFull(1020, 1200, false, true, true, 100);
     }
 
     // ---- resolve guards ----

@@ -113,7 +113,8 @@ abstract contract CurbHookTest is CurbFixture {
 
     function test_init_refusesSecondPool() public {
         MockERC20 x = new MockERC20("X", "X", 18);
-        (address c0, address c1) = address(x) < address(curb) ? (address(x), address(curb)) : (address(curb), address(x));
+        (address c0, address c1) =
+            address(x) < address(curb) ? (address(x), address(curb)) : (address(curb), address(x));
         PoolKey memory k = PoolKey(Currency.wrap(c0), Currency.wrap(c1), 12500, 60, IHooks(address(hook)));
         _expectInitRefusal(hook, k, FACTORY, abi.encodeWithSelector(ICurbHook.AlreadyInitialized.selector));
     }
@@ -123,13 +124,28 @@ abstract contract CurbHookTest is CurbFixture {
         vm.expectRevert(ICurbHook.BadParams.selector);
         deployCodeTo(
             "CurbHook.sol:CurbHook",
-            abi.encode(manager, address(curb), FACTORY, OWNER, int24(100), int24(99), WINDOW, LIMIT, HALT, COOLDOWN, true),
+            abi.encode(
+                manager,
+                address(curb),
+                FACTORY,
+                OWNER,
+                int24(100),
+                int24(99),
+                WINDOW,
+                LIMIT,
+                HALT,
+                COOLDOWN,
+                MIN_LIQUIDITY_E18,
+                true
+            ),
             at
         );
         vm.expectRevert(ICurbHook.BadParams.selector);
         deployCodeTo(
             "CurbHook.sol:CurbHook",
-            abi.encode(manager, address(0), FACTORY, OWNER, BAND, EDGE, WINDOW, LIMIT, HALT, COOLDOWN, true),
+            abi.encode(
+                manager, address(0), FACTORY, OWNER, BAND, EDGE, WINDOW, LIMIT, HALT, COOLDOWN, MIN_LIQUIDITY_E18, true
+            ),
             at
         );
     }
@@ -281,6 +297,60 @@ abstract contract CurbHookTest is CurbFixture {
         assertEq(bytes4(innerError(data)), ICurbHook.OutsideBand.selector);
     }
 
+    /// @dev Someone's own liquidity in the empty range lets the reference roll up into it; once it
+    /// is pulled, the reference sits where nothing trades. A buyer crossing back into the launch's
+    /// liquidity is judged from where that liquidity begins, and passes.
+    function test_voidStart_strandedReferenceIsEscapable() public {
+        _launchLikePool();
+        lpRouter.modifyLiquidity(key, ModifyLiquidityParams(0, 3000, 1e21, bytes32(uint256(1))), "");
+        moveTo(890);
+        vm.warp(block.timestamp + WINDOW);
+        moveTo(891);
+        moveTo(1780);
+        vm.warp(block.timestamp + WINDOW);
+        moveTo(1781);
+        moveTo(2670);
+        vm.warp(block.timestamp + WINDOW);
+        moveTo(2671);
+        assertEq(hook.status().ref, 2670);
+        lpRouter.modifyLiquidity(key, ModifyLiquidityParams(0, 3000, -1e21, bytes32(uint256(1))), "");
+        moveTo(-500);
+        assertEq(tick(), -500);
+        assertEq(hook.status().ref, 399);
+    }
+
+    function test_voidStart_stillCapsMovesWithinTheVoid() public {
+        _launchLikePool();
+        // From the empty range further into it: no liquidity crossed, the band applies.
+        moveTo(900);
+        (bool ok, bytes memory data) = trySwap(swapParams(1001, -1e29));
+        assertFalse(ok);
+        assertEq(bytes4(innerError(data)), ICurbHook.OutsideBand.selector);
+    }
+
+    function test_closeIlliquid_keepsReference() public {
+        _launchLikePool();
+        moveTo(-950); // into the launch liquidity, at the lower edge: the limit clock starts
+        moveTo(1000); // back through it and out into the empty range, still at a band edge
+        assertGt(hook.status().edgeSince, 0);
+        vm.warp(block.timestamp + LIMIT + HALT);
+        moveTo(990);
+        assertEq(hook.status().nonce, 1);
+        assertEq(hook.status().ref, 0);
+        moveTo(-500);
+        assertEq(tick(), -500);
+    }
+
+    function test_dustBelowMinimum_isNotLiquidity() public {
+        _launchLikePool();
+        lpRouter.modifyLiquidity(key, ModifyLiquidityParams(900, 960, 1, bytes32(uint256(2))), "");
+        moveTo(930);
+        assertEq(hook.status().edgeSince, 0);
+        vm.warp(block.timestamp + LIMIT + 5);
+        moveTo(940);
+        assertTrue(hook.isLive());
+    }
+
     // ---- limit, halt, verdicts ----
 
     function test_status_phases() public {
@@ -352,6 +422,7 @@ abstract contract CurbHookTest is CurbFixture {
         assertEq(p.limitSeconds, LIMIT);
         assertEq(p.haltSeconds, HALT);
         assertEq(p.cooldownSeconds, COOLDOWN);
+        assertEq(p.minLiquidity, MIN_LIQUIDITY);
         assertTrue(p.arbBlocks);
         assertEq(hook.owner(), OWNER);
     }

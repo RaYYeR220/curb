@@ -40,6 +40,8 @@ abstract contract CurbFixture is Test {
     uint32 internal constant LIMIT = 15;
     uint32 internal constant HALT = 900;
     uint32 internal constant COOLDOWN = 1800;
+    uint32 internal constant MIN_LIQUIDITY_E18 = 1;
+    uint128 internal constant MIN_LIQUIDITY = 1e18;
 
     PoolManager internal manager;
     PoolSwapTest internal swapRouter;
@@ -90,14 +92,17 @@ abstract contract CurbFixture is Test {
         address at = hookAddress(seed);
         deployCodeTo(
             "CurbHook.sol:CurbHook",
-            abi.encode(manager, token, initializer, owner, BAND, EDGE, WINDOW, LIMIT, HALT, COOLDOWN, true),
+            abi.encode(
+                manager, token, initializer, owner, BAND, EDGE, WINDOW, LIMIT, HALT, COOLDOWN, MIN_LIQUIDITY_E18, true
+            ),
             at
         );
         return CurbHook(at);
     }
 
     function keyFor(CurbHook h) internal view returns (PoolKey memory) {
-        (address c0, address c1) = address(curb) < address(imd) ? (address(curb), address(imd)) : (address(imd), address(curb));
+        (address c0, address c1) =
+            address(curb) < address(imd) ? (address(curb), address(imd)) : (address(imd), address(curb));
         return PoolKey(Currency.wrap(c0), Currency.wrap(c1), 12500, 60, IHooks(address(h)));
     }
 

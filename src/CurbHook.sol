@@ -7,6 +7,8 @@ import {IHooks} from "v4-core/src/interfaces/IHooks.sol";
 import {Hooks} from "v4-core/src/libraries/Hooks.sol";
 import {TickMath} from "v4-core/src/libraries/TickMath.sol";
 import {StateLibrary} from "v4-core/src/libraries/StateLibrary.sol";
+import {TickBitmap} from "v4-core/src/libraries/TickBitmap.sol";
+import {BitMath} from "v4-core/src/libraries/BitMath.sol";
 import {PoolKey} from "v4-core/src/types/PoolKey.sol";
 import {PoolId} from "v4-core/src/types/PoolId.sol";
 import {Currency} from "v4-core/src/types/Currency.sol";
@@ -37,6 +39,11 @@ import {L2Block} from "./libraries/L2Block.sol";
 /// tax every swap, so the tape is an event, and `totalVolume` with block-aligned snapshots lets a
 /// reader check an aggregate over any incident window against the chain.
 ///
+/// Below `minLiquidity` in range the pool is treated as having no market: as under the opening price
+/// of a single-sided launch, where moving the price is free. Such prices never start a halt and
+/// never become the reference, and a swap that starts there is judged from the first real
+/// liquidity it crosses, so nothing parked in an empty range can lock buyers out.
+///
 /// The hook takes no fee, returns no delta and has no liquidity callbacks, so adding, removing
 /// and collecting fees on a position are untouched. It serves exactly one pool: the first
 /// initialisation, from `initializer`, on a key holding `token` with the static 1.25% fee and tick
@@ -63,7 +70,10 @@ contract CurbHook is BaseHook, ICurbHook {
     uint32 internal immutable LIMIT_SECONDS;
     uint32 internal immutable HALT_SECONDS;
     uint32 internal immutable COOLDOWN_SECONDS;
+    uint128 internal immutable MIN_LIQUIDITY;
     bool internal immutable ARB_BLOCKS;
+    /// @dev How far a boundary search walks the tick bitmap: 64 words of 256 spaced ticks.
+    uint256 internal constant MAX_BITMAP_WORDS = 64;
 
     Breaker.State internal breaker;
     PoolId internal poolId;
@@ -90,12 +100,14 @@ contract CurbHook is BaseHook, ICurbHook {
         uint32 limitSeconds,
         uint32 haltSeconds,
         uint32 cooldownSeconds,
+        uint32 minLiquidityE18,
         bool arbBlocks
     ) BaseHook(poolManager_) {
         if (
             address(poolManager_) == address(0) || token_ == address(0) || initializer_ == address(0)
                 || owner_ == address(0) || edgeTicks <= 0 || bandTicks - edgeTicks < 2 || bandTicks > 20_000
                 || refWindow == 0 || limitSeconds == 0 || haltSeconds == 0 || cooldownSeconds == 0
+                || minLiquidityE18 == 0
         ) revert BadParams();
         token = token_;
         initializer = initializer_;
@@ -106,6 +118,8 @@ contract CurbHook is BaseHook, ICurbHook {
         LIMIT_SECONDS = limitSeconds;
         HALT_SECONDS = haltSeconds;
         COOLDOWN_SECONDS = cooldownSeconds;
+        // Taken in units of 1e18 so the manifest can state it as a plain JSON integer.
+        MIN_LIQUIDITY = uint128(minLiquidityE18) * 1e18;
         ARB_BLOCKS = arbBlocks;
     }
 
@@ -158,7 +172,7 @@ contract CurbHook is BaseHook, ICurbHook {
     }
 
     function params() external view returns (Params memory) {
-        return Params(BAND, EDGE, REF_WINDOW, LIMIT_SECONDS, HALT_SECONDS, COOLDOWN_SECONDS, ARB_BLOCKS);
+        return Params(BAND, EDGE, REF_WINDOW, LIMIT_SECONDS, HALT_SECONDS, COOLDOWN_SECONDS, MIN_LIQUIDITY, ARB_BLOCKS);
     }
 
     function isLive() external view returns (bool) {
@@ -201,7 +215,7 @@ contract CurbHook is BaseHook, ICurbHook {
         override
         returns (bytes4, BeforeSwapDelta, uint24)
     {
-        bool liquid = poolManager.getLiquidity(poolId) > 0;
+        bool liquid = poolManager.getLiquidity(poolId) >= MIN_LIQUIDITY;
         Breaker.Before memory b = Breaker.beforeSwap(breaker, _config(), uint64(block.timestamp), liquid);
         if (b.closed.happened) {
             Breaker.Closed memory c = b.closed;
@@ -222,10 +236,21 @@ contract CurbHook is BaseHook, ICurbHook {
         returns (bytes4, int128)
     {
         (, int24 tickAfter,,) = poolManager.getSlot0(poolId);
-        bool liquid = poolManager.getLiquidity(poolId) > 0;
+        bool liquid = poolManager.getLiquidity(poolId) >= MIN_LIQUIDITY;
         int24 ref = breaker.ref;
-        Breaker.After memory a = Breaker.afterSwap(breaker, _config(), uint64(block.timestamp), tickAfter, liquid);
-        if (a.refused) revert OutsideBand(ref, tickAfter, a.limit, params_.zeroForOne);
+        Breaker.Config memory c = _config();
+        Breaker.After memory a = Breaker.afterSwap(breaker, c, uint64(block.timestamp), tickAfter, liquid);
+        if (a.refused) {
+            // Started where nothing trades: judge it from the first liquidity it crossed.
+            (bool crossed, int24 boundary) =
+                breaker.voidStart ? _liquidityBoundary(breaker.lastTick, tickAfter) : (false, int24(0));
+            if (!crossed || !Breaker.admissibleFromVoid(breaker, c, tickAfter, boundary)) {
+                revert OutsideBand(ref, tickAfter, a.limit, params_.zeroForOne);
+            }
+            a = Breaker.admitFromVoid(breaker, c, uint64(block.timestamp), tickAfter, liquid);
+            emit ReferenceReanchored(breaker.nonce, breaker.ref, boundary, tickAfter);
+            _shiftWindow();
+        }
 
         int128 moved = pairedIs0 ? delta.amount0() : delta.amount1();
         uint256 volume = uint256(uint128(moved < 0 ? -moved : moved));
@@ -243,6 +268,33 @@ contract CurbHook is BaseHook, ICurbHook {
     }
 
     // ---- internals ----
+
+    /// @dev The first initialised tick the price crossed going from `from` to `to` that carries at
+    /// least `MIN_LIQUIDITY` of positions: where liquidity begins for a swap that started without it.
+    function _liquidityBoundary(int24 from, int24 to) internal view returns (bool, int24) {
+        bool up = to > from;
+        int24 c = TickBitmap.compress(from, TICK_SPACING);
+        if (up) c += 1;
+        for (uint256 i = 0; i < MAX_BITMAP_WORDS; i++) {
+            (int16 wordPos, uint8 bitPos) = TickBitmap.position(c);
+            uint256 word = poolManager.getTickBitmap(poolId, wordPos);
+            uint256 masked = up
+                ? word & ~((uint256(1) << bitPos) - 1)
+                : word & (bitPos == 255 ? type(uint256).max : (uint256(1) << (uint256(bitPos) + 1)) - 1);
+            while (masked != 0) {
+                uint8 bit = up ? BitMath.leastSignificantBit(masked) : BitMath.mostSignificantBit(masked);
+                int24 tick = (int24(wordPos) * 256 + int24(uint24(bit))) * TICK_SPACING;
+                if (up ? tick > to : tick < to) return (false, 0);
+                (uint128 gross,) = poolManager.getTickLiquidity(poolId, tick);
+                if (gross >= MIN_LIQUIDITY) return (true, tick);
+                masked &= ~(uint256(1) << bit);
+            }
+            int24 next = up ? (int24(wordPos) + 1) * 256 : int24(wordPos) * 256 - 1;
+            if (up ? next * TICK_SPACING > to : (next + 1) * TICK_SPACING <= to) return (false, 0);
+            c = next;
+        }
+        return (false, 0);
+    }
 
     function _config() internal view returns (Breaker.Config memory) {
         return Breaker.Config(BAND, EDGE, REF_WINDOW, LIMIT_SECONDS, HALT_SECONDS, COOLDOWN_SECONDS);

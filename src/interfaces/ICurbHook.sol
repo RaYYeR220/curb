@@ -13,6 +13,7 @@ interface ICurbHook {
         uint32 limitSeconds;
         uint32 haltSeconds;
         uint32 cooldownSeconds;
+        uint128 minLiquidity;
         bool arbBlocks;
     }
 
@@ -48,6 +49,9 @@ interface ICurbHook {
     /// tape the oracle ranks when an incident is filed.
     event Trade(address indexed trader, uint256 volume);
     event ReferenceRolled(uint32 indexed nonce, int24 ref, int24 twap, int24 tick);
+    /// @notice A swap from a range with no liquidity crossed into liquidity at `boundary` and landed
+    /// within a band of it; the reference re-anchored beside where it landed.
+    event ReferenceReanchored(uint32 indexed nonce, int24 ref, int24 boundary, int24 tick);
     event LimitEntered(uint32 indexed nonce, int24 ref, int24 tick, uint64 haltsAt);
     event LimitCleared(uint32 indexed nonce, int24 tick);
     event Resolved(uint32 indexed nonce, Breaker.Verdict verdict, uint64 reopensAt);

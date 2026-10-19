@@ -143,7 +143,8 @@ contract LaunchRehearsalTest is Test {
         vm.expectEmit(INTAKE);
         emit IImdIntake.Completed(id, 0, keccak256("result"), "ipfs://result", true);
         vm.prank(IImdIntake(INTAKE).writer());
-        IImdIntake(INTAKE).complete(id, 0, keccak256("result"), "ipfs://result", abi.encode(id, a, abi.encodePacked(r, sg, v)));
+        IImdIntake(INTAKE)
+            .complete(id, 0, keccak256("result"), "ipfs://result", abi.encode(id, a, abi.encodePacked(r, sg, v)));
         CurbDesk.Incident memory inc = desk.incident(address(hook), nonce);
         assertEq(uint8(inc.verdict), uint8(Breaker.Verdict.Concentrated));
         assertTrue(inc.applied);
@@ -154,7 +155,8 @@ contract LaunchRehearsalTest is Test {
         _sellCurb(IERC20(token).balanceOf(address(this)) / 10);
         s = hook.status();
         assertEq(s.nonce, nonce + 1);
-        assertEq(s.ref, openRef, "the pin did not hold the reference from before the move");
+        // Pinned to the pre-move reference, moved only far enough to clear the edge zone.
+        assertEq(s.ref, imdIs0 ? openRef - 51 : openRef + 51, "the pin did not hold the reference from before the move");
         assertGt(s.pinUntil, block.timestamp);
         console.log("hook", hookAddr);
         console.log("token", token);
@@ -177,7 +179,18 @@ contract LaunchRehearsalTest is Test {
         bytes memory hookCode = abi.encodePacked(
             type(CurbHook).creationCode,
             abi.encode(
-                POOL_MANAGER, token, FACTORY, address(desk), int24(1000), int24(100), uint32(300), uint32(15), uint32(900), uint32(1800), true
+                POOL_MANAGER,
+                token,
+                FACTORY,
+                address(desk),
+                int24(1000),
+                int24(100),
+                uint32(300),
+                uint32(15),
+                uint32(900),
+                uint32(1800),
+                uint32(100_000),
+                true
             )
         );
 
@@ -215,7 +228,8 @@ contract LaunchRehearsalTest is Test {
     function _mineSalt(bytes memory code) internal pure returns (bytes32) {
         bytes32 codeHash = keccak256(code);
         for (uint256 i = 0; i < 1_000_000; i++) {
-            address at = address(uint160(uint256(keccak256(abi.encodePacked(bytes1(0xff), FACTORY, bytes32(i), codeHash)))));
+            address at =
+                address(uint160(uint256(keccak256(abi.encodePacked(bytes1(0xff), FACTORY, bytes32(i), codeHash)))));
             if (uint160(at) & 0x3FFF == FLAGS) return bytes32(i);
         }
         revert("no salt");
@@ -239,7 +253,9 @@ contract LaunchRehearsalTest is Test {
     }
 
     function _tryBuyCurb(uint256 imdIn) internal returns (bytes memory data) {
-        try router.swap(key, imdIs0, -int256(imdIn), imdIs0 ? TickMath.MIN_SQRT_PRICE + 1 : TickMath.MAX_SQRT_PRICE - 1) {
+        try router.swap(
+            key, imdIs0, -int256(imdIn), imdIs0 ? TickMath.MIN_SQRT_PRICE + 1 : TickMath.MAX_SQRT_PRICE - 1
+        ) {
             revert("expected a refusal");
         } catch (bytes memory reason) {
             data = reason;

@@ -25,9 +25,13 @@ import {BandMath} from "./BandMath.sol";
 /// - After a halt, the next one cannot start before `haltSeconds + cooldownSeconds + limitSeconds`
 ///   from the start of the last, counted from the scheduled end so an early reopen buys no slack.
 ///
-/// Where the pool has no liquidity in range, as at the bottom of a single-sided launch position,
-/// moving the price costs nothing. The band still caps such a move, but the limit clock and the
-/// reference roll ignore it, so nobody can halt the pool or walk its reference for the price of gas.
+/// Where the pool has no liquidity in range, as below the opening price of a single-sided launch,
+/// moving the price costs nothing and nobody can trade. Prices there are not a market, so they
+/// never start the limit clock, never roll the reference and never become the reference when a
+/// halt closes. The band still caps a free move. And a swap that starts in such a range and crosses
+/// into liquidity is judged from where the liquidity begins, not from a reference it never traded
+/// against; if it lands within a band of that boundary it passes and the reference re-anchors
+/// beside it. A reference left behind in an empty range can therefore never shut buyers out.
 library Breaker {
     enum Phase {
         Open,
@@ -63,6 +67,8 @@ library Breaker {
         Verdict verdict;
         uint64 windowStart;
         uint64 lastObs;
+        /// @dev Whether the swap in progress started where in-range liquidity is below the floor.
+        bool voidStart;
         /// @dev Tick-seconds accumulated from `windowStart` to `lastObs`.
         int56 cum;
         /// @dev When the price entered the edge zone; zero when it is not there.
@@ -96,6 +102,7 @@ library Breaker {
         int24 limit;
         bool limitEntered;
         bool limitCleared;
+        bool reanchored;
         uint64 haltsAt;
     }
 
@@ -144,9 +151,10 @@ library Breaker {
             (uint64 start, uint64 end) = halt(s, c);
             if (nowTs >= start) {
                 if (nowTs < end) revert Halted(s.nonce, end);
-                b.closed = _close(s, c, nowTs, start, end);
+                b.closed = _close(s, c, nowTs, start, end, liquid);
             }
         }
+        s.voidStart = !liquid;
         if (s.pinUntil != 0 && nowTs >= s.pinUntil) s.pinUntil = 0;
         if (s.pinUntil == 0 && liquid && nowTs >= s.windowStart + c.refWindow) {
             int24 t = BandMath.twap(s.cum, s.lastTick, s.lastObs, s.windowStart, nowTs, c.refWindow);
@@ -179,19 +187,32 @@ library Breaker {
             a.limit = tickAfter < ref ? lower : upper;
             return a;
         }
-        s.lastTick = tickAfter;
-        if (s.pinUntil == 0 && liquid) {
-            bool edge = BandMath.inEdge(ref, c.band, c.edge, tickAfter);
-            if (edge && s.edgeSince == 0) {
-                s.edgeSince = nowTs;
-                s.edgeRef = ref;
-                a.limitEntered = true;
-            } else if (!edge && s.edgeSince != 0) {
-                s.edgeSince = 0;
-                a.limitCleared = true;
-            }
-        }
-        (a.haltsAt,) = halt(s, c);
+        _land(s, c, nowTs, tickAfter, liquid, a);
+    }
+
+    /// @notice Whether a swap the band refused may still pass because it started where nothing
+    /// trades and lands within a band of the first liquidity it crossed (`boundary`, found by the
+    /// caller in the pool's tick bitmap).
+    function admissibleFromVoid(State storage s, Config memory c, int24 tickAfter, int24 boundary)
+        internal
+        view
+        returns (bool)
+    {
+        return s.voidStart && BandMath.dist(tickAfter, boundary) <= uint24(c.band);
+    }
+
+    /// @notice Lands an admissible swap from an empty range: the reference re-anchors just inside
+    /// the band of where the price landed, and the reference window starts over.
+    function admitFromVoid(State storage s, Config memory c, uint64 nowTs, int24 tickAfter, bool liquid)
+        internal
+        returns (After memory a)
+    {
+        s.ref = BandMath.rollRef(s.ref, tickAfter, c.band, c.edge);
+        s.windowStart = nowTs;
+        s.lastObs = nowTs;
+        s.cum = 0;
+        a.reanchored = true;
+        _land(s, c, nowTs, tickAfter, liquid, a);
     }
 
     /// @notice Applies a verdict to the halt in progress. It can end the halt now or pin the
@@ -209,14 +230,41 @@ library Breaker {
         (, reopensAt) = halt(s, c);
     }
 
-    function _close(State storage s, Config memory c, uint64 nowTs, uint64 start, uint64 end)
+    /// @dev Records the price a passing swap left, then runs the limit clock: entering the edge
+    /// zone needs liquidity there, leaving it always clears the clock.
+    function _land(State storage s, Config memory c, uint64 nowTs, int24 tickAfter, bool liquid, After memory a)
+        private
+    {
+        s.lastTick = tickAfter;
+        if (s.pinUntil == 0) {
+            int24 ref = s.ref;
+            bool edge = BandMath.inEdge(ref, c.band, c.edge, tickAfter);
+            if (edge && liquid && s.edgeSince == 0) {
+                s.edgeSince = nowTs;
+                s.edgeRef = ref;
+                a.limitEntered = true;
+            } else if (!edge && s.edgeSince != 0) {
+                s.edgeSince = 0;
+                a.limitCleared = true;
+            }
+        }
+        (a.haltsAt,) = halt(s, c);
+    }
+
+    /// @dev Concentrated: the pre-move reference, moved just far enough that the price leaves the
+    /// edge zone. Otherwise the current price, unless nothing trades there; then the reference stays.
+    function _close(State storage s, Config memory c, uint64 nowTs, uint64 start, uint64 end, bool liquid)
         private
         returns (Closed memory closed)
     {
         Verdict v = s.verdict;
         uint64 cooldownEnd = start + c.haltSeconds + c.cooldownSeconds;
         bool pin = v == Verdict.Concentrated;
-        int24 newRef = pin ? BandMath.pinRef(s.edgeRef, s.lastTick, c.band) : s.lastTick;
+        int24 tick = s.lastTick;
+        int24 newRef;
+        if (pin) newRef = BandMath.rollRef(s.edgeRef, tick, c.band, c.edge);
+        else if (liquid) newRef = tick;
+        else newRef = BandMath.pinRef(s.ref, tick, c.band);
         closed = Closed(true, s.nonce, start, end, v, newRef, cooldownEnd);
         s.ref = newRef;
         s.pinUntil = pin ? cooldownEnd : 0;

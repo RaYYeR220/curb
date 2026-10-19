@@ -26,8 +26,8 @@ fi
 
 forge build --silent
 HOOK_CODE=$(forge inspect CurbHook bytecode)
-HOOK_ARGS=$(cast abi-encode "constructor(address,address,address,address,int24,int24,uint32,uint32,uint32,uint32,bool)" \
-  $POOL_MANAGER $TOKEN_PROBE $FACTORY_PROBE $OWNER_PROBE 1000 100 300 15 900 1800 true)
+HOOK_ARGS=$(cast abi-encode "constructor(address,address,address,address,int24,int24,uint32,uint32,uint32,uint32,uint32,bool)" \
+  $POOL_MANAGER $TOKEN_PROBE $FACTORY_PROBE $OWNER_PROBE 1000 100 300 15 900 1800 100000 true)
 
 export IMD_HOOK_CREATION_CODE="${HOOK_CODE}${HOOK_ARGS#0x}"
 export IMD_HOOK_FLAGS=0x20C0
