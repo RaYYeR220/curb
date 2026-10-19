@@ -18,7 +18,8 @@ parameters:
 - **How:** an attacker pushes the price into the edge zone, waits 15 seconds, and the pool halts.
 - **Cost:** at the opening liquidity a 9.5% push is about 105 IMD of buying. The attacker sells
   most of it back afterwards, so the real cost is the round-trip fee (2 × 1.25%) plus spread:
-  roughly 3 IMD per halt. The cost scales linearly with the pool's liquidity.
+  roughly 3 IMD per halt. The cost scales linearly with the pool's liquidity. Near the opening
+  price, launch 2266 has a far cheaper path: see "Waiting in the empty range" below.
 - **Bound:** the next halt cannot start before halt + cooldown + limit (45 min 15 s) from the
   start of the last. Continuous griefing therefore keeps the pool halted at most a third of the
   time.
@@ -75,9 +76,39 @@ nothing.
 below `minLiquidity` (1e23, about 7% of what the factory seeds). Such prices:
 - never start the limit clock;
 - never roll the reference;
-- never become the reference when a halt closes there; a close keeps the reference instead.
+- never become the reference when a halt closes there; a close keeps the reference instead;
+- in code after launch 2266, are never sampled into the next reference: the window slides past
+  time spent there.
 
 The band still caps a free move at ±1,000 ticks.
+
+### Waiting in the empty range
+
+Launch 2266 runs the code tagged `launch-2266`, which averaged time spent in the empty range
+into the next reference roll. The final review found it after the launch and proved it on a fork
+of the live hook.
+- **How:**
+  1. A 1-wei CURB sell with a price limit 999 ticks into the empty range. It costs nothing:
+     both deltas are 0, and no CURB is needed.
+  2. Wait. On a pool that trades, one window is enough. On 2266, which had not rolled since its
+     launch, the wait has to be comparable to the time since launch; 6 hours did it.
+  3. Buy back into the launch liquidity, about 1 IMD, and one second later buy a little more.
+     That swap rolls the reference about 830 ticks toward the empty price, buyers have about
+     90 ticks of room left, and the limit state starts.
+- **Effect:** 15 seconds later the pool halts for 15 minutes. Between halts, buys of more than
+  about 1% are refused until a roll brings the reference back.
+- **Cost:** about 2 IMD of buying, which the attacker keeps as CURB. The real cost is the
+  round-trip fee, about 0.05 IMD, against about 3 IMD per halt anywhere else.
+- **Bound:** the halt-spacing bound still holds: at most one halt per 45 minutes 15 seconds.
+  Sells toward the reference always pass, so it is a nuisance, not a trap. Once the desk holds
+  IMD, each such halt can also be filed for one question.
+- **Fixed in code** (`75d1a6c`): where in-range liquidity is below `minLiquidity`, the elapsed time
+  is not sampled and the window start moves past it. Tests:
+  `test_voidTime_isNotSampled_cannotHaltReturningBuyers`,
+  `test_voidTime_isNotSampled_cannotCapBuyers` and `test_voidTime_rollUsesOnlyLiquidTime`, plus
+  regenerated differential traces.
+- **On 2266:** the hook is immutable. Liquidity of at least `minLiquidity` across the band below
+  the opening price would close the empty range. The review put that at about 8 IMD.
 
 **The stranding attack, and why it fails.**
 - **How it would work:** someone adds their own liquidity in the empty range, rolls the reference
@@ -100,6 +131,8 @@ can halt the pool by trading against themselves:
 - **Their position:** it offers CURB below the launch price to anyone who wants it.
 - **The bound:** the halt-spacing bound above still holds, so the pool stays live at least two
   thirds of the time.
+- **On launch 2266** waiting in the empty range is cheaper still and needs no capital at all;
+  see above.
 
 ## The verdict
 
@@ -146,8 +179,14 @@ can halt the pool by trading against themselves:
 **Anyone can spend the treasury on incidents.**
 - **The design:** filing is permissionless, so a griefer who halts the pool can also make the desk
   pay for the question.
-- **The bound:** one question per incident, never more than `MAX_PRICE` (1 IMD), and incidents
-  are at most one per 45 minutes.
+- **The bound:** one question per incident, never more than `MAX_PRICE` (1 IMD), and on CURB/IMD
+  at most one incident per 45 minutes.
+- **The drill pool shares the treasury.** It is bound to the same desk and halts for 5 minutes
+  with a 5-minute cooldown. Anyone can push it to its edge for under a cent and file the halt
+  about every 10 minutes, so the drill can spend the launch pool's fees on questions about a demo
+  pool. The deployed desk has no unbind. `curb watch` never files drill halts unless run with
+  `--file-drill`, and `script/drill.sh` sends its filing step only while the desk holds no IMD.
+  A later desk should give each pool its own budget.
 - **Who gains:** the IMD goes to IMD's treasury, never to the griefer. Spending the treasury on
   incidents is what it is for.
 

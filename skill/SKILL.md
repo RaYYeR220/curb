@@ -44,7 +44,10 @@ brief and this reference disagree on an address, a parameter or an error, the ch
   A verdict can shorten a halt or keep a level. It can never lengthen a halt or move funds.
 - **No market, no rule.** Where in-range liquidity is below `minLiquidity`, prices never start the
   limit clock, never roll the reference and never become the reference when a halt closes. A swap
-  that starts there is judged from the first initialised tick carrying real liquidity.
+  that starts there is judged from the first initialised tick carrying real liquidity. On launch
+  2266, time the price spends there is still averaged into the next reference: if CURB/IMD has
+  sat below its opening price, expect the next roll to pull the band down, and call
+  `curb_preflight` before every buy.
 
 | Parameter | CURB/IMD | DRILL/ETH (drill pool) |
 | --- | --- | --- |

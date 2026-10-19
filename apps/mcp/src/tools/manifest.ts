@@ -82,7 +82,7 @@ export function buildManifest(name: string, symbol: string, p: HookParams) {
     `of the band edge for ${p.limitSeconds} seconds halts the pool in both directions for at most ${p.haltSeconds} seconds ` +
     `(Halted(nonce, reopensAt)), derived from stored state and the clock with no keeper, then a ${p.cooldownSeconds}-second ` +
     `cooldown spaces the next halt. Where in-range liquidity is below minLiquidity the price never starts the limit clock, never ` +
-    `rolls the reference and never becomes the reference when a halt closes; a swap that starts there and crosses into liquidity ` +
+    `rolls the reference, is never sampled into it and never becomes the reference when a halt closes; a swap that starts there and crosses into liquidity ` +
     `is judged from the first initialised tick carrying at least minLiquidity, so a reference left in an empty range cannot shut ` +
     `buyers out. The owner ($owner) has one power, resolve(nonce, verdict): end the current halt now or pin the pre-move ` +
     `reference through the cooldown; it cannot lengthen a halt, change a parameter or move funds, and ownership cannot be ` +

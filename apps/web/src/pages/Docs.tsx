@@ -24,7 +24,7 @@ const p = await previewSwap(client, deployments.router, key, true, -100000000000
 if (p.ok) console.log("passes, ends at tick", p.tickAfter);
 else console.log(p.error?.name, p.error?.human);`;
 
-const VERIFY = `forge test                         # 193 tests: unit, fuzz, 8 invariants, soak, oracle conformance,
+const VERIFY = `forge test                         # 199 tests: unit, fuzz, 8 invariants, soak, oracle conformance,
                                    # and the TypeScript model replayed against the Solidity breaker
 node script/claims-check.mjs       # every claim in CLAIMS.md against its transaction or test
 bash script/protected.sh           # IMD's univ4_hook admission suites, 13/13

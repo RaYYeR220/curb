@@ -23,8 +23,10 @@ few minutes. Curb is that rule as a v4 hook, on Robinhood Chain, launched throug
   The swarm can shorten a halt or decline to bless a level. It can never lengthen a halt or touch
   funds.
 - **No strandings below the launch price.** Where nothing trades, prices don't count: they never
-  halt the pool or move its reference. A swap from there into real liquidity is judged from where
-  that liquidity begins.
+  start a halt or roll the reference. A swap from there into real liquidity is judged from where
+  that liquidity begins. One gap shipped in launch 2266: time spent there was still averaged into
+  the next reference, which makes a cheap halt possible near the opening price. It is fixed in
+  code since, and priced in [FAILURE-MODES.md](FAILURE-MODES.md#waiting-in-the-empty-range).
 
 ## How it works
 
@@ -108,7 +110,7 @@ Every claim and the transaction or test behind it is in [CLAIMS.md](CLAIMS.md);
 ## Verify it
 
 ```sh
-forge test                         # 193 tests: unit, fuzz, 8 invariants, soak, oracle conformance,
+forge test                         # 199 tests: unit, fuzz, 8 invariants, soak, oracle conformance,
                                    # and the TypeScript model replayed against the Solidity breaker
 bash script/protected.sh           # IMD's univ4_hook admission suites, 13/13
 bash script/protected.sh above     # the same with CURB sorting above IMD

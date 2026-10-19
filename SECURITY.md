@@ -40,7 +40,7 @@ adversarial price manipulation. That is what the invariant suite and the soak wa
 
 ## What was done
 
-- **Tests.** 188 Foundry tests: unit, fuzz, eight stateful invariants, a 3,000-action seeded soak
+- **Tests.** 199 Foundry tests: unit, fuzz, eight stateful invariants, a 3,000-action seeded soak
   walk and the oracle conformance vector. The soak walk reaches 150 closed halts, 478 refusals and
   47 applied verdicts.
 - **IMD's admission floor.** IMD's own `univ4_hook` protected suites, 13 of 13 in both token
@@ -67,6 +67,13 @@ adversarial price manipulation. That is what the invariant suite and the soak wa
   - **Low:** a zero figure read as organic.
   - **Desk:** `bind` was open to anyone, so a decoy launch could take the pool slot; and an
     incident was marked filed only after external calls.
+- **Final review, after launch 2266.** A fresh review of the whole branch found one critical issue
+  in the launched hook: time spent in the empty range below the opening price was averaged into
+  the next reference, so the pool can be halted for about 0.05 IMD in fees near that price. It is
+  fixed in code with regression tests. The launched hook is immutable, so the attack is priced in
+  `FAILURE-MODES.md` ("Waiting in the empty range"). The same review found that the drill pool can
+  spend the shared treasury; the keeper and the drill script now leave it alone, and it is
+  documented there too.
 - **IMD's admission.** IMD's swarm audits the repository before it deploys anything: provenance,
   findings and independent review.
 - **Not done.** There is no external human audit and no funded bug bounty.
@@ -91,7 +98,8 @@ adversarial price manipulation. That is what the invariant suite and the soak wa
 - **OpenZeppelin.** BaseHook (uniswap-hooks v1.3.0-rc.0), ERC20, SafeERC20, ReentrancyGuard,
   Math, Strings, EIP712 and SignatureChecker.
 - **Griefing.** Halts are bounded and spaced, the limit clock ignores zero-liquidity moves, and
-  the desk files one question per incident. See `FAILURE-MODES.md`.
+  the desk files one question per incident. Launch 2266 still samples empty-range time into its
+  reference, which makes halts cheap near the opening price. See `FAILURE-MODES.md`.
 
 ## Accounting safety
 

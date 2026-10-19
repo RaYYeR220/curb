@@ -35,6 +35,7 @@ timings (band 300 ticks, limit 10 s, halt 5 min). Hook `0xeE60C95711F5650bbBBee4
 | On-chain volume equals the sum of the `Trade` tape, block for block | `invariant_8_totalVolumeEqualsTradeSum`, `test_volume_sameBlockRoll` |
 | Nothing parked below the opening price can lock buyers out | `test_voidStart_strandedReferenceIsEscapable`, `test_closeIlliquid_keepsReference` |
 | Dust liquidity cannot start a halt | `test_dustBelowMinimum_isNotLiquidity` |
+| Time where nothing trades is not sampled into the reference (code after launch 2266; see FAILURE-MODES) | `test_voidTime_isNotSampled_cannotHaltReturningBuyers`, `test_voidTime_isNotSampled_cannotCapBuyers`, `test_voidTime_rollUsesOnlyLiquidTime` |
 | IMD leaves the desk only as an exact Intake price, never more than `MAX_PRICE` | `testFuzz_noTokenLeavesExceptIntakePrice`, `test_launch_priceAboveCapRefused`, `test_file_priceAboveCapRefused` |
 | Only the steward can bind a pool to the desk | `test_bind_onlySteward` |
 | One question per incident, even if something calls back | `test_file_reentryFromFeeClaimFilesOnce`, `test_file_oncePerNonce` |
