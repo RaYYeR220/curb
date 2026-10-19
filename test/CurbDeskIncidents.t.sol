@@ -3,7 +3,7 @@ pragma solidity 0.8.26;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ModifyLiquidityParams} from "v4-core/src/types/PoolOperation.sol";
-import {CurbDesk} from "../src/CurbDesk.sol";
+import {CurbDesk} from "../desk/CurbDesk.sol";
 import {CurbHook} from "../src/CurbHook.sol";
 import {ICurbHook} from "../src/interfaces/ICurbHook.sol";
 import {Breaker} from "../src/libraries/Breaker.sol";

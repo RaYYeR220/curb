@@ -8,7 +8,7 @@ import {IHooks} from "v4-core/src/interfaces/IHooks.sol";
 import {TickMath} from "v4-core/src/libraries/TickMath.sol";
 import {PoolKey} from "v4-core/src/types/PoolKey.sol";
 import {Currency} from "v4-core/src/types/Currency.sol";
-import {CurbDesk} from "../src/CurbDesk.sol";
+import {CurbDesk} from "../desk/CurbDesk.sol";
 import {CurbHook} from "../src/CurbHook.sol";
 import {IIntake} from "../src/interfaces/IIntake.sol";
 import {ILaunchFactory} from "../src/interfaces/ILaunchFactory.sol";

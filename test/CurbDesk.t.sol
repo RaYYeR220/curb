@@ -7,7 +7,7 @@ import {PoolKey} from "v4-core/src/types/PoolKey.sol";
 import {Currency} from "v4-core/src/types/Currency.sol";
 import {MockERC20} from "solmate/src/test/utils/mocks/MockERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {CurbDesk} from "../src/CurbDesk.sol";
+import {CurbDesk} from "../desk/CurbDesk.sol";
 import {IIntake} from "../src/interfaces/IIntake.sol";
 import {MockIntake} from "./utils/MockIntake.sol";
 import {MockLaunchFactory} from "./utils/MockLaunchFactory.sol";
