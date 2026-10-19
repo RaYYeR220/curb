@@ -17,6 +17,8 @@ import {DrillToken} from "../src/tools/DrillToken.sol";
 
 /// @notice Robinhood Chain deployments, one step per entry point:
 ///
+/// Run with `FOUNDRY_PROFILE=deploy`, the profile that may write `deployments/`:
+///
 ///   forge script script/Mainnet.s.sol --sig "core()"        --rpc-url $RH_RPC --broadcast
 ///   forge script script/Mainnet.s.sol --sig "buyImd(uint256)" <maxWei> --rpc-url $RH_RPC --broadcast
 ///   forge script script/Mainnet.s.sol --sig "drill()"       --rpc-url $RH_RPC --broadcast
