@@ -25,3 +25,14 @@ What the overhead pays for, per swap:
 At Robinhood Chain's 0.02 gwei that is about 0.0000013 ETH per swap. A swap that rolls the
 reference or closes a halt writes two more snapshots and costs more; those happen at most once per
 reference window.
+
+## Test effort
+
+| Suite | Profile | Calls | Wall time |
+|---|---|---|---|
+| `CurbHookInvariants` (8 invariants) | default | 64 runs × 64 calls = 4,096 | ~2.6 s |
+| `CurbHookInvariants` (8 invariants) | `deep` | 256 runs × 200 calls = 51,200 | ~37 s |
+| `test_soak_longRandomWalk` | any | 3,000 seeded actions | included above |
+
+The soak walk reaches 1,130 swaps, 478 refusals, 260 swaps refused by a halt, 150 closed halts and
+47 applied verdicts, with every invariant checked at the end.
