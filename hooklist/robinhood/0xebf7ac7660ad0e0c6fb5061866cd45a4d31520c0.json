@@ -1,0 +1,35 @@
+{
+  "hook": {
+    "address": "0xebf7ac7660ad0e0c6fb5061866cd45a4d31520c0",
+    "chain": "robinhood",
+    "chainId": 4663,
+    "name": "CurbHook",
+    "description": "Curb: a LULD-style circuit breaker for the CURB/IMD pool, launched through Identity MD. Refuses a swap that would end more than 1000 ticks from a 5-minute time-weighted reference and further from it (a swap toward the reference always passes); a price held at the band's edge for 15 s halts the pool both ways for at most 15 min, then it reopens on its own. No fees, no deltas, no liquidity callbacks, not upgradeable.",
+    "deployer": "0xa25b02a1e93903b790e6aaf7da1b8b8d50294645",
+    "verifiedSource": true,
+    "auditUrl": ""
+  },
+  "flags": {
+    "beforeInitialize": true,
+    "afterInitialize": false,
+    "beforeAddLiquidity": false,
+    "afterAddLiquidity": false,
+    "beforeRemoveLiquidity": false,
+    "afterRemoveLiquidity": false,
+    "beforeSwap": true,
+    "afterSwap": true,
+    "beforeDonate": false,
+    "afterDonate": false,
+    "beforeSwapReturnsDelta": false,
+    "afterSwapReturnsDelta": false,
+    "afterAddLiquidityReturnsDelta": false,
+    "afterRemoveLiquidityReturnsDelta": false
+  },
+  "properties": {
+    "dynamicFee": false,
+    "upgradeable": false,
+    "requiresCustomSwapData": false,
+    "vanillaSwap": false,
+    "swapAccess": "temporal"
+  }
+}
