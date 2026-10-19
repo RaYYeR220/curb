@@ -74,6 +74,8 @@ The pool is CURB/IMD with the static 1.25% fee and tick spacing 60, seeded by IM
 | Drill hook (DRILL/ETH) | [`0xeE60C95711F5650bbBBee421426820feC6e060c0`](https://robin.etherscan.io/address/0xeE60C95711F5650bbBBee421426820feC6e060c0) |
 | CurbRouter | [`0x040B0f37e4CcdB79e4A2cdA7a894800bbe73eD45`](https://robin.etherscan.io/address/0x040B0f37e4CcdB79e4A2cdA7a894800bbe73eD45) |
 
+All three, and the drill token, are source-verified on [Sourcify](https://sourcify.dev/#/lookup/0xa4dF8fbf3A1aB94795577c74fFae26E1d2083819).
+
 The desk paid IMD's `launch.open` itself
 ([tx](https://robin.etherscan.io/tx/0x01c6be368e6b206308a9f0b82bdb7375d352e44930865604a723a83cafada7a2)),
 so it is the launch's requester and its hook's owner. The drill ran every refusal on chain:

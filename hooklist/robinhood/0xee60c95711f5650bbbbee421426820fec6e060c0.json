@@ -6,7 +6,7 @@
     "name": "CurbHook (drill)",
     "description": "Curb: a LULD-style circuit breaker. Refuses a swap that would end outside a band around a time-weighted reference and further from it (a swap toward the reference always passes); a price that holds at the band's edge halts the pool in both directions for at most a fixed time, then it reopens on its own. No fees, no deltas, no liquidity callbacks, not upgradeable. This deployment is the drill pool with short timings.",
     "deployer": "0xe83bc0ddded710c5a6e4e6fc8d6e5da4cd46042c",
-    "verifiedSource": false,
+    "verifiedSource": true,
     "auditUrl": ""
   },
   "flags": {
