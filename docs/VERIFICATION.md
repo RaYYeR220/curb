@@ -106,3 +106,8 @@ against an anvil fork of Robinhood Chain before anything was sent live:
 3. after 12 seconds a swap was mined failed with `Halted`;
 4. `fileIncident` was mined failed with `TreasuryShort`;
 5. 300 seconds later a swap closed the incident (`HaltClosed`, phase `Cooldown`, nonce 1).
+
+The same five steps then ran live on Robinhood Chain with the same outcomes. The transactions are
+listed in the [README](../README.md#live-on-robinhood-chain) and checked by
+`node script/claims-check.mjs`. One difference from the fork: the live RPC returns a revert that
+cast has already decoded by name (`execution reverted: NotHalted`), so `drill.sh` reads both forms.
