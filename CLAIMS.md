@@ -14,7 +14,7 @@ and that every test name exists in the suite.
 | A limit state that holds halts the pool in both directions | tx `0x2d3d543cb871e7c03f9caf71e7ffac3944ea308861e071b9b23eb5fb8522026b` (failed: `Halted`) |
 | The desk will not file an incident it cannot pay for, and says why | tx `0xb5e739198e9868f42f2510264755d495e42f1ff8202eadc889d3fac1cfe79ab7` (failed: `TreasuryShort(0, 0.5 IMD)`) |
 | A halt ends on its own at its maximum, with no keeper | tx `0x9de3edbec3a9433a18919fac13b2344760c04e1adcb166967fc20e7bbe15a9dd` (succeeded: `HaltClosed`, phase cooldown) |
-| The desk paid IMD's `launch.open` itself: it is the payer, requester and hook owner | tx `0x01c6be368e6b206308a9f0b82bdb7375d352e44930865604a723a83cafada7a2` (succeeded: Intake `Requested`, 0.5 IMD) |
+| The desk paid IMD's `launch.open` itself: it is the payer, requester and hook owner | tx `0x01c6be368e6b206308a9f0b82bdb7375d352e44930865604a723a83cafada7a2` (succeeded: Intake `Requested`, 0.5 IMD; launch 2255, parked) and tx `0x5ac4c9d4473b061caa6c01665e288df0a3355a424984033c05132a4da9275d93` (succeeded: the relaunch, 0.5 IMD) |
 
 The five drill transactions ran on the DRILL/ETH pool, on the same `CurbHook` code with short
 timings (band 300 ticks, limit 10 s, halt 5 min). Hook `0xeE60C95711F5650bbBBee421426820feC6e060c0`.
@@ -58,5 +58,11 @@ timings (band 300 ticks, limit 10 s, halt 5 min). Hook `0xeE60C95711F5650bbBBee4
   transaction above is that state, on chain.
 - **The post-mortem job.** Tested against a mock Intake only. It runs once the treasury holds two
   question prices.
-- **The CURB/IMD pool.** IMD is building it from commit `faea5be` as job
-  `ba1783a0-120c-41b3-a933-892a34a6e91c`.
+- **The CURB/IMD pool.** IMD is building it from commit `335beee` as job
+  `dac7fdb4-c231-4d5f-979f-17855ab2de9c`. The first launch, 2255 from `faea5be`, passed IMD's
+  provenance, findings, review, manifest, protected-invariant and economics checks and parked on the
+  bytecode check: `CurbDesk contains DELEGATECALL`. The desk has none. The compiler stores three
+  32-byte constants after the desk's final `INVALID`, the topic of `ResultDelivered` ends in `0xf4`,
+  and a linear scan of the code reads that byte as an opcode. The check covers contracts under
+  `src/`, and the desk is not part of the launch, so it moved to `desk/`. Its bytecode is unchanged
+  (`cast code` on the desk matches the build), and the hook and token are byte-identical to 2255's.
