@@ -12,7 +12,7 @@ import {Currency} from "v4-core/src/types/Currency.sol";
 import {LiquidityAmounts} from "v4-core/test/utils/LiquidityAmounts.sol";
 import {CurbHook} from "../../src/CurbHook.sol";
 import {CurbToken} from "../../src/CurbToken.sol";
-import {CurbDesk} from "../../src/CurbDesk.sol";
+import {CurbDesk} from "../../desk/CurbDesk.sol";
 import {ICurbHook} from "../../src/interfaces/ICurbHook.sol";
 import {IIntake} from "../../src/interfaces/IIntake.sol";
 import {ILaunchFactory} from "../../src/interfaces/ILaunchFactory.sol";

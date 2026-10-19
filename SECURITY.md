@@ -9,11 +9,13 @@ the framework's own dimensions and brackets; higher means more risk.
 | Contract | What it is | Holds funds |
 |---|---|---|
 | `src/CurbHook.sol` | Uniswap v4 hook, one per pool | no |
-| `src/CurbDesk.sol` | Pays IMD, owns the hooks, buys oracle verdicts | IMD treasury (LP fees, top-ups) |
+| `desk/CurbDesk.sol` | Pays IMD, owns the hooks, buys oracle verdicts | IMD treasury (LP fees, top-ups) |
 | `src/CurbToken.sol` | Fixed-supply ERC-20 launched with the pool | n/a |
 | `src/libraries/*` | Band math, the breaker state machine, L2 block number | n/a |
 
 `src/tools/` (a router and a drill token for demos) is not part of the launch and holds nothing.
+`desk/` is deployed from the steward's wallet, not by the launch, so it sits outside the `src/` tree
+the launch builds.
 `src/oracle/` is IMD's canonical oracle library, copied unchanged.
 
 ## Risk dimensions
