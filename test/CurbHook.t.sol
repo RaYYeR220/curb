@@ -265,6 +265,17 @@ abstract contract CurbHookTest is CurbFixture {
         assertEq(fromBlock, block.number);
     }
 
+    /// @dev Arbitrum RPCs report `0xfe` as ArbSys's code. On a fork that is INVALID, which burns
+    /// all the gas a call forwards; the read must forward only a little and fall back.
+    function test_l2Block_forkedArbSysCostsBoundedGas() public {
+        vm.etch(address(100), hex"fe");
+        uint256 before = gasleft();
+        moveTo(100);
+        assertLt(before - gasleft(), 500_000);
+        (, uint64 toBlock,) = hook.incidentWindow();
+        assertEq(toBlock, block.number);
+    }
+
     // ---- zero liquidity in range ----
 
     function _launchLikePool() internal {
