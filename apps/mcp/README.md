@@ -30,6 +30,9 @@ Claude Code: `claude mcp add curb -- npx -y tsx /path/to/curb/apps/mcp/src/index
 
 ## Streamable HTTP
 
+Hosted: `https://curb-bay.vercel.app/mcp` (`claude mcp add --transport http curb https://curb-bay.vercel.app/mcp`).
+It is `src/vercel.ts`, bundled by `script/site.sh`. To run your own:
+
 ```sh
 npx tsx apps/mcp/src/index.ts --http 8787     # http://127.0.0.1:8787/mcp
 ```

@@ -239,7 +239,10 @@ export function Docs() {
               token). Start it from the repository root:
             </p>
             <CodeBlock label="Shell" code={MCP_START} />
-            <p>Or register it with a client that launches servers itself:</p>
+            <p>
+              It is also hosted over Streamable HTTP at <code>https://curb-bay.vercel.app/mcp</code>. Or register the local server with a
+              client that launches servers itself:
+            </p>
             <CodeBlock label="MCP client configuration" code={MCP_CONFIG} />
           </section>
 

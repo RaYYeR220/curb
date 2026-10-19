@@ -68,6 +68,12 @@ The pool is CURB/IMD with the static 1.25% fee and tick spacing 60, seeded by IM
 
 ## Live on Robinhood Chain
 
+- **App:** [curb-bay.vercel.app](https://curb-bay.vercel.app): a live board, "try to break it" against
+  the real pool through `eth_call`, incidents, and a launch builder for your own token.
+- **MCP server:** `https://curb-bay.vercel.app/mcp` (Streamable HTTP), or run
+  [apps/mcp](apps/mcp) locally. [skill/SKILL.md](skill/SKILL.md) teaches an agent to trade on a Curb pool.
+- **Backtest:** [backtest/](backtest): every IMD launch pool on Robinhood replayed through the breaker.
+
 | | Address |
 |---|---|
 | CurbDesk | [`0xa4dF8fbf3A1aB94795577c74fFae26E1d2083819`](https://robin.etherscan.io/address/0xa4dF8fbf3A1aB94795577c74fFae26E1d2083819) |

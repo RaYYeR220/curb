@@ -295,7 +295,8 @@ After `pnpm install` in the repository, run it over stdio:
 
 or with Claude Code: `claude mcp add curb -- npx -y tsx /path/to/curb/apps/mcp/src/index.ts`.
 
-Over Streamable HTTP: `npx tsx apps/mcp/src/index.ts --http 8787` serves
+Hosted over Streamable HTTP at `https://curb-bay.vercel.app/mcp`. To run your own,
+`npx tsx apps/mcp/src/index.ts --http 8787` serves
 `http://127.0.0.1:8787/mcp`, stateless, POST only. `--host 0.0.0.0` binds every interface.
 `--rpc <url>` (or `CURB_RPC`) picks the Robinhood RPC and `--imd-api <url>` (or `IMD_API`) the IMD
 API.

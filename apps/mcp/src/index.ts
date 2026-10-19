@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { createServer } from "node:http";
 import { parseArgs } from "node:util";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { defaultContext, type Context } from "./context";
+import { defaultContext } from "./context";
+import { handle, reply } from "./http";
 import { createCurbServer, SERVER_NAME, SERVER_VERSION } from "./server";
 
 const USAGE = `curb MCP server
@@ -50,54 +50,6 @@ async function main() {
     });
   });
   http.listen(port, values.host, () => console.error(`${SERVER_NAME} ${SERVER_VERSION} on http://${values.host}:${port}/mcp`));
-}
-
-/** Stateless Streamable HTTP: every POST gets its own server and transport, since no tool keeps session state. */
-async function handle(ctx: Context, req: IncomingMessage, res: ServerResponse) {
-  const path = (req.url ?? "/").split("?")[0];
-  if (path === "/" || path === "/health") {
-    return reply(res, 200, { name: SERVER_NAME, version: SERVER_VERSION, mcp: "/mcp" });
-  }
-  if (path !== "/mcp") return reply(res, 404, { error: "not found" });
-  if (req.method !== "POST") {
-    return reply(res, 405, { jsonrpc: "2.0", error: { code: -32000, message: "Method not allowed: this server is stateless, POST only." }, id: null });
-  }
-  let body: unknown;
-  try {
-    body = JSON.parse(await readBody(req));
-  } catch {
-    return reply(res, 400, { jsonrpc: "2.0", error: { code: -32700, message: "Parse error" }, id: null });
-  }
-  const server = createCurbServer(ctx);
-  const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
-  res.on("close", () => {
-    void transport.close();
-    void server.close();
-  });
-  await server.connect(transport);
-  await transport.handleRequest(req, res, body);
-}
-
-function readBody(req: IncomingMessage): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const chunks: Buffer[] = [];
-    let size = 0;
-    req.on("data", (c: Buffer) => {
-      size += c.length;
-      if (size > 1_000_000) {
-        reject(new Error("body too large"));
-        req.destroy();
-        return;
-      }
-      chunks.push(c);
-    });
-    req.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
-    req.on("error", reject);
-  });
-}
-
-function reply(res: ServerResponse, status: number, body: unknown) {
-  res.writeHead(status, { "content-type": "application/json" }).end(JSON.stringify(body));
 }
 
 main().catch((e) => {
