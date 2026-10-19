@@ -18,7 +18,7 @@ import {
 import { formatPreview, formatStatus } from "./format";
 import { healthGate } from "./gate";
 import { Imd, importUrl } from "./imd";
-import { attestationTuple, decide, type PoolView } from "./keeper";
+import { attestationTuple, decide, runActions, type Action, type PoolView } from "./keeper";
 
 const ORACLE_REQUEST = stringToHex("oracle.request@oracle-1", { size: 32 });
 const erc20 = [
@@ -148,31 +148,26 @@ program
   .description("the keeper: file halts the desk can pay for, push undelivered answers, sweep fees")
   .option("--interval <seconds>", "poll interval", "10")
   .option("--dry", "decide without sending")
-  .action(async (opts: { interval: string; dry?: boolean }) => {
+  .option("--file-drill", "also file drill halts; each question is paid from the launch pool's fees")
+  .action(async (opts: { interval: string; dry?: boolean; fileDrill?: boolean }) => {
     const c = client();
     let lastClaim = 0;
+    const log = (line: string) => console.log(new Date().toISOString(), line);
     for (;;) {
       for (const p of pools()) {
-        const view = await poolView(c, p.hook, p.kind, Math.floor(Date.now() / 1000) - lastClaim);
-        for (const a of decide(view)) {
-          console.log(new Date().toISOString(), p.kind, a.kind, "why" in a ? a.why : "");
-          if (opts.dry || a.kind === "wait") continue;
-          const w = wallet();
-          if (a.kind === "file") {
-            await w.writeContract({ address: desk, abi: curbDeskAbi, functionName: "fileIncident", args: [a.hook] });
-          } else if (a.kind === "push") {
-            await w.writeContract({
-              address: desk,
-              abi: curbDeskAbi,
-              functionName: "submitAttestation",
-              args: [a.requestId, attestationTuple(a.attestation), a.attestation.signature],
-            });
-          } else if (a.kind === "claim") {
-            const n = BigInt((deployments as { launch?: { number?: number } }).launch?.number ?? 0);
-            if (n > 0n) await w.writeContract({ address: ADDRESSES.launchFactory, abi: factoryAbi, functionName: "claimFees", args: [n] });
-            lastClaim = Math.floor(Date.now() / 1000);
-          }
+        let actions: Action[];
+        try {
+          const view = await poolView(c, p.hook, p.kind, Math.floor(Date.now() / 1000) - lastClaim);
+          actions = decide({ ...view, fileDrill: opts.fileDrill });
+        } catch (e) {
+          log(`${p.kind} read failed: ${e instanceof Error ? e.message.split("\n")[0] : String(e)}`);
+          continue;
         }
+        for (const a of actions) log(`${p.kind} ${a.kind} ${"why" in a ? a.why : ""}`);
+        if (opts.dry) continue;
+        const sendable = actions.filter((a) => a.kind !== "wait");
+        if (sendable.some((a) => a.kind === "claim")) lastClaim = Math.floor(Date.now() / 1000);
+        await runActions(sendable, (a) => send(c, a), (line) => log(`${p.kind} ${line}`));
       }
       await new Promise((r) => setTimeout(r, Number(opts.interval) * 1000));
     }
@@ -207,7 +202,24 @@ async function poolView(c: PublicClient, hook: Address, kind: "launch" | "drill"
     const [, , questionHash] = (await c.readContract({ address: desk, abi: curbDeskAbi, functionName: "pending", args: [incident.requestId] })) as [Address, number, Hex];
     if (questionHash !== `0x${"0".repeat(64)}`) pending = { requestId: incident.requestId, attestation: await answerFor(c, hook, s.nonce) };
   }
-  return { hook, kind, phase: s.phase as Phase, nonce: s.nonce, incidentState: incident.state, treasury, questionPrice, pending, sinceClaim };
+  const now = Math.floor(Date.now() / 1000);
+  return { hook, kind, phase: s.phase as Phase, nonce: s.nonce, incidentState: incident.state, treasury, questionPrice, pending, sinceClaim, now };
+}
+
+/** Sends one keeper action, simulating it first: a refusal costs no gas and comes back with its reason. */
+async function send(c: PublicClient, a: Action) {
+  const w = wallet();
+  const call =
+    a.kind === "file"
+      ? { address: desk, abi: curbDeskAbi, functionName: "fileIncident", args: [a.hook] }
+      : a.kind === "push"
+        ? { address: desk, abi: curbDeskAbi, functionName: "submitAttestation", args: [a.requestId, attestationTuple(a.attestation), a.attestation.signature] }
+        : a.kind === "claim"
+          ? { address: ADDRESSES.launchFactory, abi: factoryAbi, functionName: "claimFees", args: [BigInt(deployments.launch?.number ?? 0)] }
+          : null;
+  if (!call || (a.kind === "claim" && call.args[0] === 0n)) return;
+  const { request } = await c.simulateContract({ ...(call as Parameters<PublicClient["simulateContract"]>[0]), account: w.account });
+  await w.writeContract(request);
 }
 
 /** The oracle's signed answer for an incident, found through the filing transaction's Intake entry. */

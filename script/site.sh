@@ -6,10 +6,17 @@ set -euo pipefail
 OUT=${1:?usage: script/site.sh <dir>}
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 
+# The directory is emptied before assembly, so only one this script made (or an empty one) is used.
+if [ -d "$OUT" ] && [ ! -f "$OUT/.curb-site" ] && [ -n "$(ls -A "$OUT" | grep -v '^\.vercel$')" ]; then
+  echo "refusing: $OUT is not empty and was not assembled by this script" >&2
+  exit 1
+fi
+
 pnpm --dir "$ROOT" --filter @curb/web build
-mkdir -p "$OUT/api"
+mkdir -p "$OUT"
 find "$OUT" -mindepth 1 -maxdepth 1 ! -name .vercel -exec rm -rf {} +
 mkdir -p "$OUT/api"
+touch "$OUT/.curb-site"
 cp -r "$ROOT/apps/web/dist/." "$OUT/"
 pnpm --dir "$ROOT/apps/mcp" exec esbuild src/vercel.ts --bundle --platform=node --format=esm --target=node20 \
   --banner:js="import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);" \

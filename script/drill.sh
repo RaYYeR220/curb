@@ -90,9 +90,15 @@ wait_s 12
 why --value 1000000000 "$ROUTER" "$SWAP" -- "$POOL" true -1000000000 $MIN_LIMIT
 send "3 refused  Halted      " --value 1000000000 --gas-limit 900000 "$ROUTER" "$SWAP" -- "$POOL" true -1000000000 $MIN_LIMIT
 show
-# 4. Ask the desk to buy the oracle's verdict; with no IMD in its treasury it says so.
+# 4. Ask the desk to buy the oracle's verdict; with no IMD in its treasury it says so. A funded desk
+# would pay for a real question about a demo halt, so then the step only asks, and sends nothing.
 why "$DESK" "fileIncident(address)" "$HOOK"
-send "4 refused  TreasuryShort" --gas-limit 900000 "$DESK" "fileIncident(address)" "$HOOK"
+TREASURY=$(cast call --rpc-url "$RPC" 0x5F7Bb59365ce557C26dbcAa4EE9d39A4b95B7127 "balanceOf(address)(uint256)" "$DESK" | cut -d' ' -f1)
+if [ "$TREASURY" = "0" ]; then
+  send "4 refused  TreasuryShort" --gas-limit 900000 "$DESK" "fileIncident(address)" "$HOOK"
+else
+  echo "4 skipped: the desk holds $TREASURY wei of IMD, and a drill halt is not worth a question"
+fi
 # 5. After the halt's maximum the first swap reopens the pool and closes the incident.
 wait_s 300
 send "5 passes   HaltClosed  " --value 1000000000 --gas-limit 900000 "$ROUTER" "$SWAP" -- "$POOL" true -1000000000 $MIN_LIMIT
