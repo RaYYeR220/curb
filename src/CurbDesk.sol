@@ -28,8 +28,9 @@ import {L2Block} from "./libraries/L2Block.sol";
 /// pinned, so only the answer to that question is ever acted on.
 ///
 /// Custody is the point. The steward can start the one launch, bind it and a drill pool, rotate the
-/// Intake or the oracle key behind a 48-hour timelock, and renounce. It cannot withdraw: no function here
-/// moves IMD anywhere except into the Intake, for exactly the action's listed price.
+/// oracle key behind a 48-hour timelock, and renounce. It cannot withdraw: no function here moves
+/// IMD anywhere except into IMD's Intake, fixed at deployment, for exactly the action's listed
+/// price, and never more than `MAX_PRICE` per request whatever the list says.
 contract CurbDesk is OracleAttestationConsumer, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
@@ -93,6 +94,8 @@ contract CurbDesk is OracleAttestationConsumer, ReentrancyGuard {
     bytes32 public constant ORACLE_REQUEST = bytes32("oracle.request@oracle-1");
     bytes32 public constant JOB_OPEN = bytes32("job.open@job-1");
     uint64 public constant TIMELOCK = 48 hours;
+    /// @notice The most one request may cost, twice IMD's price at deployment.
+    uint256 public constant MAX_PRICE = 1 ether;
 
     /// @notice The panel each question asks for, and how many must agree.
     uint16 public constant PANEL_SIZE = 7;
@@ -106,9 +109,9 @@ contract CurbDesk is OracleAttestationConsumer, ReentrancyGuard {
     /// absolute window once its last block is five deep, a few blocks after the ask lands.
     uint64 public constant MIN_DEPTH = 8;
 
+    IIntake public immutable intake;
     IERC20 public immutable imd;
     ILaunchFactory public immutable factory;
-    IIntake public intake;
     address public steward;
 
     mapping(address hook => Pool) public pools;
@@ -121,7 +124,6 @@ contract CurbDesk is OracleAttestationConsumer, ReentrancyGuard {
     bytes32 public launchResultHash;
     string public launchUri;
 
-    Proposal public intakeProposal;
     Proposal public signerProposal;
 
     mapping(address hook => mapping(uint32 nonce => Incident)) internal incidents;
@@ -135,6 +137,7 @@ contract CurbDesk is OracleAttestationConsumer, ReentrancyGuard {
     error NotOurLaunch(uint64 launchNumber);
     error NotOurHook(address hook);
     error TreasuryShort(uint256 have, uint256 need);
+    error PriceAboveCap(uint256 price, uint256 cap);
     error Timelocked(uint64 eta);
     error NothingProposed();
     error UnknownRequest(bytes32 requestId);
@@ -204,7 +207,7 @@ contract CurbDesk is OracleAttestationConsumer, ReentrancyGuard {
 
     /// @notice Pays IMD's `launch.open` for the CURB launch. `body` is the request JSON, checked
     /// free at `POST /requests/check` before it is sent; the desk is its payer, requester and owner.
-    function launch(bytes calldata body) external onlySteward nonReentrant returns (bytes32 requestId) {
+    function launch(bytes calldata body) external nonReentrant onlySteward returns (bytes32 requestId) {
         if (launchBound) revert AlreadyBound();
         uint256 price = _pay(LAUNCH_OPEN);
         requestId = intake.requestWithFailure(
@@ -226,7 +229,7 @@ contract CurbDesk is OracleAttestationConsumer, ReentrancyGuard {
     /// whose hook names this desk as owner and then hand the desk the requester share with
     /// `LaunchFactory.setRequester`. Bound first, such a decoy would take the launch slot and spend
     /// the treasury on whatever "incidents" its hook reports.
-    function bind(uint64 n) external onlySteward {
+    function bind(uint64 n) external nonReentrant onlySteward {
         (PoolKey memory key,,, address requester) = factory.positionOf(n);
         if (requester != address(this)) revert NotOurLaunch(n);
         address hook = address(key.hooks);
@@ -238,14 +241,14 @@ contract CurbDesk is OracleAttestationConsumer, ReentrancyGuard {
     }
 
     /// @notice Binds a drill pool the steward deployed on a Curb hook this desk owns.
-    function bindDrill(address hook) external onlySteward {
+    function bindDrill(address hook) external nonReentrant onlySteward {
         if (ICurbHook(hook).owner() != address(this)) revert NotOurHook(hook);
         if (pools[hook].kind != Kind.None) revert AlreadyBound();
         _register(hook, Kind.Drill, 0);
     }
 
     /// @notice Tops up the treasury. Anyone may.
-    function fund(uint256 amount) external {
+    function fund(uint256 amount) external nonReentrant {
         imd.safeTransferFrom(msg.sender, address(this), amount);
         emit Funded(msg.sender, amount);
     }
@@ -291,6 +294,7 @@ contract CurbDesk is OracleAttestationConsumer, ReentrancyGuard {
     /// @notice The oracle's answer, delivered by the Intake under its 200,000 gas stipend.
     function onOracleResult(bytes32 requestId, OracleAttestation.Attestation calldata a, bytes calldata signature)
         external
+        nonReentrant
         onlyIntake
     {
         _settle(requestId, a, signature);
@@ -300,13 +304,15 @@ contract CurbDesk is OracleAttestationConsumer, ReentrancyGuard {
     /// the callback did not land. The signature and the pinned question make the caller irrelevant.
     function submitAttestation(bytes32 requestId, OracleAttestation.Attestation calldata a, bytes calldata signature)
         external
+        nonReentrant
     {
         _settle(requestId, a, signature);
     }
 
     /// @notice The rule: the top trader's share of the window's paired-currency volume.
     function classify(uint256 figure, uint256 total) public pure returns (Breaker.Verdict, uint16 shareBps) {
-        if (total == 0 || figure > total) return (Breaker.Verdict.Inconclusive, 0);
+        // A leader with no volume is not an answer this question can have; read it as no answer.
+        if (total == 0 || figure == 0 || figure > total) return (Breaker.Verdict.Inconclusive, 0);
         shareBps = uint16(Math.mulDiv(figure, 10_000, total));
         if (shareBps <= ORGANIC_MAX_BPS) return (Breaker.Verdict.Organic, shareBps);
         if (shareBps >= CONCENTRATED_MIN_BPS) return (Breaker.Verdict.Concentrated, shareBps);
@@ -321,8 +327,8 @@ contract CurbDesk is OracleAttestationConsumer, ReentrancyGuard {
         Incident storage inc = incidents[hook][nonce];
         if (inc.state != IncidentState.Answered) revert NotAnswered(nonce);
         if (inc.jobRequestId != bytes32(0)) revert AlreadyCommissioned(nonce);
-        uint256 jobPrice = intake.priceOf(JOB_OPEN, address(imd));
-        uint256 need = jobPrice + intake.priceOf(ORACLE_REQUEST, address(imd));
+        uint256 jobPrice = _priceOf(JOB_OPEN);
+        uint256 need = jobPrice + _priceOf(ORACLE_REQUEST);
         uint256 have = imd.balanceOf(address(this));
         if (have < need) revert TreasuryShort(have, need);
         imd.forceApprove(address(intake), jobPrice);
@@ -341,7 +347,7 @@ contract CurbDesk is OracleAttestationConsumer, ReentrancyGuard {
     // ---- the Intake's callbacks ----
 
     /// @notice A job's result: the launch, or a post-mortem.
-    function onResult(bytes32 requestId, bytes32 resultHash, string calldata uri) external onlyIntake {
+    function onResult(bytes32 requestId, bytes32 resultHash, string calldata uri) external nonReentrant onlyIntake {
         IncidentRef memory ref = postMortems[requestId];
         if (requestId == launchRequestId && requestId != bytes32(0)) {
             launchState = RequestState.Completed;
@@ -360,6 +366,7 @@ contract CurbDesk is OracleAttestationConsumer, ReentrancyGuard {
     /// incident is closed as failed and is not asked again, since a second ask would pay again.
     function onRequestFailure(bytes32 requestId, uint8 status, bytes32 reason, uint16, uint16, bytes calldata)
         external
+        nonReentrant
         onlyIntake
     {
         Pending memory p = pending[requestId];
@@ -375,16 +382,6 @@ contract CurbDesk is OracleAttestationConsumer, ReentrancyGuard {
     }
 
     // ---- the steward ----
-
-    function proposeIntake(IIntake to) external onlySteward {
-        if (address(to) == address(0)) revert ZeroAddress();
-        intakeProposal = _propose("intake", address(to));
-    }
-
-    function executeIntake() external onlySteward {
-        intake = IIntake(_execute(intakeProposal, "intake"));
-        delete intakeProposal;
-    }
 
     function proposeOracleSigner(address to) external onlySteward {
         if (to == address(0)) revert ZeroAddress();
@@ -498,35 +495,40 @@ contract CurbDesk is OracleAttestationConsumer, ReentrancyGuard {
         Incident storage inc = incidents[p.hook][p.nonce];
         address[] memory leaders = decodeAddressList(a);
         Breaker.Verdict v = Breaker.Verdict.Inconclusive;
-        uint16 bps;
-        address leader;
+        uint16 bps = 0;
+        address leader = address(0);
         if (leaders.length == 1) {
             leader = leaders[0];
             (v, bps) = classify(a.figure, inc.total);
         }
-        bool applied;
+        inc.state = IncidentState.Answered;
+        inc.verdict = v;
+        inc.shareBps = bps;
+        inc.leader = leader;
+        inc.figure = a.figure;
+        bool applied = false;
         if (v == Breaker.Verdict.Organic || v == Breaker.Verdict.Concentrated) {
             // A late answer finds the halt over or another incident running, and the hook says no.
             // It is still recorded: the verdict is a fact about that incident either way.
             try ICurbHook(p.hook).resolve(p.nonce, v) {
                 applied = true;
+                inc.applied = true;
             } catch {}
         }
-        inc.state = IncidentState.Answered;
-        inc.verdict = v;
-        inc.applied = applied;
-        inc.shareBps = bps;
-        inc.leader = leader;
-        inc.figure = a.figure;
         emit VerdictReached(p.hook, p.nonce, v, bps, leader, a.figure, inc.total, applied);
     }
 
     /// @dev Approves the Intake for exactly one price of `action`, or reverts naming the shortfall.
     function _pay(bytes32 action) internal returns (uint256 price) {
-        price = intake.priceOf(action, address(imd));
+        price = _priceOf(action);
         uint256 have = imd.balanceOf(address(this));
         if (have < price) revert TreasuryShort(have, price);
         imd.forceApprove(address(intake), price);
+    }
+
+    function _priceOf(bytes32 action) internal view returns (uint256 price) {
+        price = intake.priceOf(action, address(imd));
+        if (price > MAX_PRICE) revert PriceAboveCap(price, MAX_PRICE);
     }
 
     function _register(address hook, Kind kind, uint64 n) internal {

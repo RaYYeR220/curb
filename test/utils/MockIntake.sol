@@ -63,7 +63,8 @@ contract MockIntake is IIntake {
         require(price != 0, "ActionNotSold");
         require(amount >= price, "PriceNotMet");
         requestId = keccak256(abi.encode(block.chainid, address(this), ++nonce));
-        stored[requestId] = Stored(msg.sender, action, body, callback.target, callback.selector, onFailure, asset, amount);
+        stored[requestId] =
+            Stored(msg.sender, action, body, callback.target, callback.selector, onFailure, asset, amount);
         lastRequestId = requestId;
         pulled += amount;
         require(IERC20(asset).transferFrom(msg.sender, TREASURY, amount), "pull");

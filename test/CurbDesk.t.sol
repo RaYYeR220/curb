@@ -171,24 +171,11 @@ contract CurbDeskTest is Test {
     // ---- steward ----
 
     function test_timelock_executeBefore48hReverts_afterWorks() public {
-        MockIntake next = new MockIntake();
-        vm.prank(steward);
-        desk.proposeIntake(next);
-        uint64 eta = uint64(block.timestamp + 48 hours);
-        vm.warp(eta - 1);
-        vm.expectRevert(abi.encodeWithSelector(CurbDesk.Timelocked.selector, eta));
-        vm.prank(steward);
-        desk.executeIntake();
-        vm.warp(eta);
-        vm.prank(steward);
-        desk.executeIntake();
-        assertEq(address(desk.intake()), address(next));
-
         address nextSigner = makeAddr("next signer");
         vm.prank(steward);
         desk.proposeOracleSigner(nextSigner);
         (, uint64 signerEta) = desk.signerProposal();
-        assertEq(signerEta, eta + 48 hours);
+        assertEq(signerEta, block.timestamp + 48 hours);
         vm.expectRevert(abi.encodeWithSelector(CurbDesk.Timelocked.selector, signerEta));
         vm.prank(steward);
         desk.executeOracleSigner();
@@ -201,15 +188,10 @@ contract CurbDeskTest is Test {
     function test_timelock_nothingProposed() public {
         vm.expectRevert(CurbDesk.NothingProposed.selector);
         vm.prank(steward);
-        desk.executeIntake();
-        vm.expectRevert(CurbDesk.NothingProposed.selector);
-        vm.prank(steward);
         desk.executeOracleSigner();
     }
 
     function test_steward_onlyStewardProposes() public {
-        vm.expectRevert(CurbDesk.NotSteward.selector);
-        desk.proposeIntake(IIntake(address(1)));
         vm.expectRevert(CurbDesk.NotSteward.selector);
         desk.proposeOracleSigner(address(1));
     }
@@ -233,6 +215,20 @@ contract CurbDeskTest is Test {
         desk.fund(2 ether);
         vm.stopPrank();
         assertEq(imd.balanceOf(address(desk)), 2 ether);
+    }
+
+    /// @dev The Intake is fixed for good, and no action may cost more than the cap: whatever IMD
+    /// lists, one request can never take more than MAX_PRICE out of the treasury.
+    function test_intakeIsImmutable() public view {
+        assertEq(address(desk.intake()), address(intake));
+    }
+
+    function test_launch_priceAboveCapRefused() public {
+        intake.setPrice(LAUNCH_OPEN, address(imd), 2 ether);
+        imd.mint(address(desk), 5 ether);
+        vm.expectRevert(abi.encodeWithSelector(CurbDesk.PriceAboveCap.selector, 2 ether, 1 ether));
+        vm.prank(steward);
+        desk.launch("{}");
     }
 
     // ---- launch results ----
@@ -286,7 +282,7 @@ contract CurbDeskTest is Test {
             } else if (action == 3) {
                 try desk.bindDrill(address(uint160(seed))) {} catch {}
             } else if (action == 4) {
-                try desk.proposeIntake(IIntake(address(uint160(seed)))) {} catch {}
+                try desk.proposeOracleSigner(address(uint160(seed))) {} catch {}
             } else if (action == 5) {
                 try desk.onResult(bytes32(seed), bytes32(seed), "") {} catch {}
             } else {

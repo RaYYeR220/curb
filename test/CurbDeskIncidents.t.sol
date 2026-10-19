@@ -68,8 +68,12 @@ contract CurbDeskIncidentsTest is CurbFixture {
         id = desk.fileIncident(address(hook));
     }
 
-    function _attestation(bytes32 id, address leader, uint256 figure) internal view returns (OracleAttestation.Attestation memory a) {
-        (, , bytes32 questionHash) = desk.pending(id);
+    function _attestation(bytes32 id, address leader, uint256 figure)
+        internal
+        view
+        returns (OracleAttestation.Attestation memory a)
+    {
+        (,, bytes32 questionHash) = desk.pending(id);
         address[] memory leaders = new address[](1);
         leaders[0] = leader;
         (uint64 fromBlock, uint64 toBlock,) = hook.incidentWindow();
@@ -181,8 +185,7 @@ contract CurbDeskIncidentsTest is CurbFixture {
     }
 
     function test_file_bodyGolden() public view {
-        (bytes memory body, bytes32 questionHash) =
-            desk.oracleBody(address(0xc0b0b), 92000000, 92003000);
+        (bytes memory body, bytes32 questionHash) = desk.oracleBody(address(0xc0b0b), 92000000, 92003000);
         bytes memory doc = bytes(
             '{"answerType":"address[]","chainId":4663,"head":1,"question":"On Robinhood Chain, between L2 blocks 92000000 and 92003000, rank the trader keys of the Trade(address indexed trader, uint256 volume) events emitted by contract 0x00000000000000000000000000000000000c0b0b by their summed volume. Which trader address has the largest summed volume? Answer a list holding that one address.","v":1,"window":{"fromBlock":92000000,"toBlock":92003000}'
         );
@@ -256,6 +259,20 @@ contract CurbDeskIncidentsTest is CurbFixture {
         (,, uint256 total) = hook.incidentWindow();
         assertTrue(_deliver(id, _attestation(id, address(0xBEEF), total + 1)));
         assertEq(uint8(desk.incident(address(hook), nonce).verdict), uint8(Breaker.Verdict.Inconclusive));
+    }
+
+    function test_classify_zeroFigure_inconclusive() public view {
+        (Breaker.Verdict v, uint16 bps) = desk.classify(0, 1e18);
+        assertEq(uint8(v), uint8(Breaker.Verdict.Inconclusive));
+        assertEq(bps, 0);
+    }
+
+    function test_file_priceAboveCapRefused() public {
+        _halt();
+        intake.setPrice(ORACLE_REQUEST, address(imd), 1 ether + 1);
+        imd.mint(address(desk), 5 ether);
+        vm.expectRevert(abi.encodeWithSelector(CurbDesk.PriceAboveCap.selector, 1 ether + 1, 1 ether));
+        desk.fileIncident(address(hook));
     }
 
     function test_classify_totalZero_inconclusive() public view {
