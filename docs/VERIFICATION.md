@@ -28,7 +28,7 @@ bash script/protected.sh above   # the same with CURB sorting above IMD
 RH_RPC=https://rpc.mainnet.chain.robinhood.com forge test --match-contract LaunchRehearsal -vv
 ```
 
-Run on 2026-10-19 18:13 UTC against Robinhood Chain at L2 block 92,825,234, using IMD's live
+Run on 2026-10-19 18:55 UTC against Robinhood Chain at L2 block 92,842,338, using IMD's live
 contracts throughout:
 
 | Contract | Address |
@@ -53,7 +53,7 @@ Both token orders pass:
 
 | | CURB above IMD | CURB below IMD |
 |---|---|---|
-| launch transaction gas | 5,812,207 | 5,794,538 |
+| launch transaction gas | 5,918,911 | 5,849,540 |
 | EIP-7825 cap | 16,777,216 | 16,777,216 |
 | result | pass | pass |
 
@@ -91,3 +91,18 @@ Each run checks, in order:
   signature from one goes down `SignatureChecker`'s ERC-1271 path and fails. The rehearsal signs
   with a key of its own. IMD's oracle signer `0x5598…2982` is a plain EOA on Robinhood Chain and
   on Ethereum (checked with `cast code`).
+- **ArbSys gas on forks.** Robinhood's RPC reports ArbSys's code as `0xfe`, so on an ordinary EVM
+  fork a call to it executes INVALID and burns all the gas it was given. The first anvil run of
+  the drill showed a small swap using about 2M gas. The read now forwards at most 20,000 gas
+  (`test_l2Block_forkedArbSysCostsBoundedGas`). An `eth_call` against the live chain, with a probe
+  contract's code overridden, shows the real precompile answering in 1,895 gas.
+
+## The drill, rehearsed
+
+`script/Mainnet.s.sol` (`core`, `buyImd`, `drill`) and `script/drill.sh` were run end to end
+against an anvil fork of Robinhood Chain before anything was sent live:
+1. a buy through the band was mined as a failed transaction with `OutsideBand`;
+2. a buy into the edge zone passed and the pool entered `Limit`;
+3. after 12 seconds a swap was mined failed with `Halted`;
+4. `fileIncident` was mined failed with `TreasuryShort`;
+5. 300 seconds later a swap closed the incident (`HaltClosed`, phase `Cooldown`, nonce 1).

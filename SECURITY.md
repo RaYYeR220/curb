@@ -38,7 +38,7 @@ adversarial price manipulation. That is what the invariant suite and the soak wa
 
 ## What was done
 
-- **Tests.** 186 Foundry tests: unit, fuzz, eight stateful invariants, a 3,000-action seeded soak
+- **Tests.** 188 Foundry tests: unit, fuzz, eight stateful invariants, a 3,000-action seeded soak
   walk and the oracle conformance vector. The soak walk reaches 150 closed halts, 478 refusals and
   47 applied verdicts.
 - **IMD's admission floor.** IMD's own `univ4_hook` protected suites, 13 of 13 in both token

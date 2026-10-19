@@ -69,7 +69,7 @@ The pool is CURB/IMD with the static 1.25% fee and tick spacing 60, seeded by IM
 ## Verify it
 
 ```sh
-forge test                         # 186 tests: unit, fuzz, 8 invariants, soak, oracle conformance
+forge test                         # 188 tests: unit, fuzz, 8 invariants, soak, oracle conformance
 bash script/protected.sh           # IMD's univ4_hook admission suites, 13/13
 bash script/protected.sh above     # the same with CURB sorting above IMD
 RH_RPC=https://rpc.mainnet.chain.robinhood.com \
