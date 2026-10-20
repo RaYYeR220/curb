@@ -70,6 +70,7 @@ The pool is CURB/IMD with the static 1.25% fee and tick spacing 60, seeded by IM
 
 ## Live on Robinhood Chain
 
+- **Demo:** [two minutes on YouTube](https://youtu.be/U67ZmJmYeWE).
 - **App:** [curb-bay.vercel.app](https://curb-bay.vercel.app): a live board, "try to break it" against
   the real pool through `eth_call`, incidents, and a launch builder for your own token.
 - **MCP server:** `https://curb-bay.vercel.app/mcp` (Streamable HTTP), or run
